@@ -32,7 +32,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import android.content.Context
 import android.net.Uri
-import java.io.File
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
@@ -43,11 +46,23 @@ import java.util.Locale
 fun saveImageLocally(context: Context, uri: Uri): String? {
     return try {
         val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-        val file = File(context.filesDir, "img_${System.currentTimeMillis()}_${(1000..9999).random()}.jpg")
-        file.outputStream().use { outputStream ->
-            inputStream.copyTo(outputStream)
+        val originalBitmap = BitmapFactory.decodeStream(inputStream) ?: return null
+
+        val maxDim = 600
+        val width = originalBitmap.width
+        val height = originalBitmap.height
+        val scaledBitmap = if (width > maxDim || height > maxDim) {
+            val scale = maxDim.toFloat() / Math.max(width, height)
+            Bitmap.createScaledBitmap(originalBitmap, (width * scale).toInt(), (height * scale).toInt(), true)
+        } else {
+            originalBitmap
         }
-        file.toURI().toString()
+
+        val outputStream = ByteArrayOutputStream()
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
+        val byteArray = outputStream.toByteArray()
+        val base64String = Base64.encodeToString(byteArray, Base64.NO_WRAP)
+        "data:image/jpeg;base64,$base64String"
     } catch (e: Exception) {
         null
     }

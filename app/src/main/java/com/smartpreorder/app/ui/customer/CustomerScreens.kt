@@ -2,21 +2,30 @@
 
 package com.smartpreorder.app.ui.customer
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -31,8 +40,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -52,8 +59,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -132,29 +144,247 @@ private fun CustomerTabs(vm: CustomerViewModel, auth: AuthViewModel, nav: NavHos
 }
 
 // =====================================================================
+// =====================================================================
 //  Tab 1: restaurants + food search
 // =====================================================================
+data class PopularCategoryItem(
+    val name: String,
+    val emoji: String,
+    val bgHex: Long = 0xFFFFF3E0
+)
+
+val POPULAR_CATEGORIES = listOf(
+    PopularCategoryItem("Rice & Curry", "🍛", 0xFFFFF3E0),
+    PopularCategoryItem("Burgers", "🍔", 0xFFFFEBEE),
+    PopularCategoryItem("Shawarma", "🌯", 0xFFF3E5F5),
+    PopularCategoryItem("Desserts", "🧁", 0xFFFCE4EC),
+    PopularCategoryItem("Beverages", "🥤", 0xFFE0F7FA),
+    PopularCategoryItem("Cafe", "☕", 0xFFEFEBE9),
+    PopularCategoryItem("Pasta", "🍝", 0xFFFFF8E1),
+    PopularCategoryItem("Juices", "🧃", 0xFFF1F8E9),
+    PopularCategoryItem("Bakery", "🥐", 0xFFFFF3E0),
+    PopularCategoryItem("Chinese", "🥢", 0xFFFFEBEE),
+    PopularCategoryItem("Indian", "🥘", 0xFFF3E5F5),
+    PopularCategoryItem("Kottu", "🍲", 0xFFFFE0B2),
+    PopularCategoryItem("Pizza", "🍕", 0xFFFFEBEE),
+    PopularCategoryItem("Short Eats", "🥟", 0xFFFFF8E1),
+    PopularCategoryItem("Fast Food", "🍟", 0xFFFFEBEE),
+    PopularCategoryItem("Vegetarian", "🥗", 0xFFE8F5E9),
+    PopularCategoryItem("Wraps", "🌯", 0xFFF3E5F5),
+    PopularCategoryItem("Sea Food", "🦐", 0xFFE0F7FA)
+)
+
+data class OfferBanner(
+    val id: String,
+    val title: String,
+    val discountText: String,
+    val subtext: String,
+    val startColor: Color,
+    val endColor: Color
+)
+
+val DEFAULT_OFFERS = listOf(
+    OfferBanner(
+        id = "1",
+        title = "Big Cravings, Bigger Savings",
+        discountText = "Rs. 1000 OFF",
+        subtext = "On orders of Rs. 3,000+",
+        startColor = Color(0xFF900C3F),
+        endColor = Color(0xFFC70039)
+    ),
+    OfferBanner(
+        id = "2",
+        title = "Special Discount",
+        discountText = "20% OFF",
+        subtext = "On all Kottu & Burgers today",
+        startColor = Color(0xFF1E5128),
+        endColor = Color(0xFF4E9F3D)
+    ),
+    OfferBanner(
+        id = "3",
+        title = "Super Deal",
+        discountText = "Free Delivery",
+        subtext = "For your first 3 pre-orders",
+        startColor = Color(0xFF1F4287),
+        endColor = Color(0xFF278EA5)
+    )
+)
+
 @Composable
 private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
+    var selectedCategory by remember { mutableStateOf<String?>(null) }
     val q = vm.query.trim()
-    val list = vm.restaurants.filter {
-        q.isEmpty() || it.name.contains(q, true) || (it.address ?: "").contains(q, true)
+    val cat = selectedCategory
+
+    val list = vm.restaurants.filter { r ->
+        val matchesQuery = q.isEmpty() || r.name.contains(q, true) || (r.address ?: "").contains(q, true) || (r.description ?: "").contains(q, true)
+        val matchesCategory = cat == null || r.name.contains(cat, true) || (r.description ?: "").contains(cat, true)
+        matchesQuery && matchesCategory
     }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
     ) {
+        // 1. Top Header & Search Bar
         item {
-            Text("Hungry? Order ahead.", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-            OutlinedTextField(
-                value = vm.query, onValueChange = vm::onQuery,
-                placeholder = { Text("Search restaurants or food") },
-                leadingIcon = { Icon(Ic.Search, null) },
-                singleLine = true, modifier = Modifier.fillMaxWidth()
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text("📍", style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Column {
+                            Text("Work", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            Text("Select location", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = vm.query,
+                    onValueChange = vm::onQuery,
+                    placeholder = { Text("Find something delicious 🤤") },
+                    leadingIcon = { Icon(Ic.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (vm.query.isNotEmpty()) {
+                            IconButton(onClick = { vm.onQuery("") }) { Icon(Ic.Close, null) }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
+
+        // 2. Offers Banner Carousel
+        item {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(DEFAULT_OFFERS, key = { it.id }) { offer ->
+                    Card(
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .width(320.dp)
+                            .height(160.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Brush.horizontalGradient(listOf(offer.startColor, offer.endColor)))
+                                .padding(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxHeight(),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text(
+                                        offer.title.uppercase(),
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color.White
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    Surface(
+                                        color = Color(0xFFFFD700),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Text(
+                                            offer.discountText,
+                                            fontWeight = FontWeight.Black,
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            color = Color.Black,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    offer.subtext,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. Popular Categories Section
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Popular Categories",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (selectedCategory != null) {
+                        TextButton(onClick = { selectedCategory = null }) {
+                            Text("Show All")
+                        }
+                    }
+                }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp)
+                ) {
+                    items(POPULAR_CATEGORIES, key = { it.name }) { catItem ->
+                        val isSelected = selectedCategory == catItem.name
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable {
+                                selectedCategory = if (isSelected) null else catItem.name
+                            }
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color(catItem.bgHex),
+                                shadowElevation = if (isSelected) 4.dp else 1.dp,
+                                modifier = Modifier.size(68.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(catItem.emoji, style = MaterialTheme.typography.headlineMedium)
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                catItem.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Dish Search Results (if searching)
         if (vm.dishResults.isNotEmpty()) {
             item { Section("Dishes") }
             items(vm.dishResults, key = { "dish-" + it.id }) { d ->
@@ -162,18 +392,27 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(d.name, fontWeight = FontWeight.SemiBold)
-                            Text(d.restaurants?.name ?: "", style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline)
+                            Text(d.restaurants?.name ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         }
                         Text(money(d.price), fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
-        item { Section("Restaurants") }
+
+        // 5. Restaurants List
+        item {
+            Text(
+                if (selectedCategory != null) "Restaurants for '$selectedCategory'" else "Restaurants",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
         if (list.isEmpty()) {
             item { EmptyState(if (vm.loadingRestaurants) "Loading..." else "No restaurants found") }
         }
+
         items(list, key = { it.id }) { r ->
             RestaurantCard(r, vm.stats[r.id]) { nav.navigate("restaurant/${r.id}") }
         }
@@ -182,24 +421,131 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
 
 @Composable
 private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(r.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f))
-                SmallTag(if (r.isOpen) "Open" else "Closed")
-            }
-            if (!r.description.isNullOrBlank()) Text(r.description, style = MaterialTheme.typography.bodyMedium)
-            if (!r.address.isNullOrBlank()) {
-                Text(r.address, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-            }
-            if (stat != null && stat.reviewCount > 0) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    RatingBar(Math.round(stat.avgRating).toInt())
-                    Text("  ${stat.avgRating} (${stat.reviewCount})", style = MaterialTheme.typography.bodySmall)
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+            ) {
+                // Cover photo
+                if (!r.coverImageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = r.coverImageUrl,
+                        contentDescription = "Cover",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else if (!r.imageUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = r.imageUrl,
+                        contentDescription = "Cover",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🍽️ ${r.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
                 }
-            } else {
-                Text("No reviews yet", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                // Open/Closed Badge
+                Surface(
+                    color = if (r.isOpen) Color(0xFFD4F4DD) else Color(0xFFFFD6D6),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
+                ) {
+                    Text(
+                        if (r.isOpen) "Open" else "Closed",
+                        color = if (r.isOpen) Color(0xFF14692B) else Color(0xFF8F1111),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                // Profile Picture / Logo Avatar
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = 14.dp)
+                        .offset(y = 20.dp)
+                        .size(56.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (!r.imageUrl.isNullOrBlank()) {
+                            AsyncImage(
+                                model = r.imageUrl,
+                                contentDescription = "Logo",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                            )
+                        } else {
+                            Text(
+                                r.name.take(1).uppercase(),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(22.dp))
+
+            Column(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        r.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (stat != null && stat.reviewCount > 0) {
+                        Surface(
+                            color = Color(0xFFFFF3CD),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Icon(Ic.Star, null, tint = Color(0xFFFFB300), modifier = Modifier.size(14.dp))
+                                Text(" ${stat.avgRating}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+
+                if (!r.description.isNullOrBlank()) {
+                    Text(r.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline, maxLines = 2)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    r.address?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                    r.estimatedPrepTimeMinutes?.let {
+                        Text("⏱️ $it mins", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
     }
@@ -255,17 +601,96 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
         ) {
             item {
                 if (r != null) {
-                    if (!r.description.isNullOrBlank()) Text(r.description)
-                    if (!r.address.isNullOrBlank()) Text(r.address, color = MaterialTheme.colorScheme.outline)
-                    if (!r.phone.isNullOrBlank()) Text(r.phone, color = MaterialTheme.colorScheme.outline)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (stat != null && stat.reviewCount > 0) {
-                            RatingBar(Math.round(stat.avgRating).toInt())
-                            Text("  ${stat.avgRating} (${stat.reviewCount})")
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    ) {
+                        Column {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp)
+                            ) {
+                                if (!r.coverImageUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = r.coverImageUrl,
+                                        contentDescription = "Cover",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else if (!r.imageUrl.isNullOrBlank()) {
+                                    AsyncImage(
+                                        model = r.imageUrl,
+                                        contentDescription = "Cover",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "🍽️ ${r.name}",
+                                            style = MaterialTheme.typography.titleLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
+
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.surface,
+                                    shadowElevation = 4.dp,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomStart)
+                                        .padding(start = 14.dp)
+                                        .offset(y = 20.dp)
+                                        .size(60.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        if (!r.imageUrl.isNullOrBlank()) {
+                                            AsyncImage(
+                                                model = r.imageUrl,
+                                                contentDescription = "Logo",
+                                                contentScale = ContentScale.Crop,
+                                                modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                            )
+                                        } else {
+                                            Text(
+                                                r.name.take(1).uppercase(),
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(Modifier.height(24.dp))
+
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(r.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                if (!r.description.isNullOrBlank()) Text(r.description, style = MaterialTheme.typography.bodyMedium)
+                                if (!r.address.isNullOrBlank()) Text("📍 ${r.address}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                if (!r.phone.isNullOrBlank()) Text("📞 ${r.phone}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (stat != null && stat.reviewCount > 0) {
+                                        RatingBar(Math.round(stat.avgRating).toInt())
+                                        Text("  ${stat.avgRating} (${stat.reviewCount})", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Spacer(Modifier.weight(1f))
+                                    TextButton(onClick = { showReport = true }) { Text("Report") }
+                                }
+                            }
                         }
-                        Spacer(Modifier.weight(1f))
-                        TextButton(onClick = { showReport = true }) { Text("Report") }
                     }
+
                     if (!canOrder) {
                         Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium) {
                             Text("This restaurant is currently closed for new orders.",
