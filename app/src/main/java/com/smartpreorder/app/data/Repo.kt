@@ -139,17 +139,79 @@ object Repo {
     suspend fun myRestaurant(): Restaurant? =
         db.from("restaurants").select { filter { eq("owner_id", uid()) } }.decodeList<Restaurant>().firstOrNull()
 
-    suspend fun createRestaurant(name: String, description: String, address: String, phone: String): Restaurant =
+    suspend fun createRestaurant(
+        name: String,
+        description: String,
+        address: String,
+        phone: String,
+        email: String? = null,
+        categoryId: String? = null,
+        imageUrl: String? = null,
+        coverImageUrl: String? = null,
+        city: String? = null,
+        district: String? = null,
+        postalCode: String? = null,
+        businessRegistrationNo: String? = null,
+        minOrderAmount: Double = 0.0,
+        estimatedPrepTimeMinutes: Int? = null,
+        deliveryRadiusKm: Double? = null,
+    ): Restaurant =
         db.from("restaurants").insert(
-            NewRestaurant(uid(), name, description.ifBlank { null }, address.ifBlank { null }, phone.ifBlank { null })
+            NewRestaurant(
+                ownerId = uid(),
+                name = name,
+                description = description.ifBlank { null },
+                address = address.ifBlank { null },
+                phone = phone.ifBlank { null },
+                email = email?.ifBlank { null },
+                categoryId = categoryId,
+                imageUrl = imageUrl?.ifBlank { null },
+                coverImageUrl = coverImageUrl?.ifBlank { null },
+                city = city?.ifBlank { null },
+                district = district?.ifBlank { null },
+                postalCode = postalCode?.ifBlank { null },
+                businessRegistrationNo = businessRegistrationNo?.ifBlank { null },
+                minOrderAmount = minOrderAmount,
+                estimatedPrepTimeMinutes = estimatedPrepTimeMinutes,
+                deliveryRadiusKm = deliveryRadiusKm,
+            )
         ) { select() }.decodeSingle<Restaurant>()
 
-    suspend fun updateRestaurant(id: String, name: String, description: String, address: String, phone: String, isOpen: Boolean) {
+    suspend fun updateRestaurant(
+        id: String,
+        name: String,
+        description: String,
+        address: String,
+        phone: String,
+        email: String? = null,
+        categoryId: String? = null,
+        imageUrl: String? = null,
+        coverImageUrl: String? = null,
+        city: String? = null,
+        district: String? = null,
+        postalCode: String? = null,
+        businessRegistrationNo: String? = null,
+        minOrderAmount: Double = 0.0,
+        estimatedPrepTimeMinutes: Int? = null,
+        deliveryRadiusKm: Double? = null,
+        isOpen: Boolean = true,
+    ) {
         db.from("restaurants").update(buildJsonObject {
             put("name", name)
             put("description", description.ifBlank { null })
             put("address", address.ifBlank { null })
             put("phone", phone.ifBlank { null })
+            put("email", email?.ifBlank { null })
+            put("category_id", categoryId)
+            put("image_url", imageUrl?.ifBlank { null })
+            put("cover_image_url", coverImageUrl?.ifBlank { null })
+            put("city", city?.ifBlank { null })
+            put("district", district?.ifBlank { null })
+            put("postal_code", postalCode?.ifBlank { null })
+            put("business_registration_no", businessRegistrationNo?.ifBlank { null })
+            put("min_order_amount", minOrderAmount)
+            put("estimated_prep_time_minutes", estimatedPrepTimeMinutes)
+            put("delivery_radius_km", deliveryRadiusKm)
             put("is_open", isOpen)
         }) { filter { eq("id", id) } }
     }

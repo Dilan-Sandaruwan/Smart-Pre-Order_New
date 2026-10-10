@@ -344,23 +344,90 @@ class RestaurantViewModel : BaseVm() {
         menu = Repo.menu(r.id)
     }
 
-    fun createRestaurant(name: String, description: String, address: String, phone: String) {
+    fun createRestaurant(
+        name: String,
+        description: String,
+        address: String,
+        phone: String,
+        email: String = "",
+        categoryId: String? = null,
+        imageUrl: String? = null,
+        coverImageUrl: String? = null,
+        city: String = "",
+        district: String = "",
+        postalCode: String = "",
+        businessRegistrationNo: String = "",
+        minOrderAmount: Double = 0.0,
+        estimatedPrepTimeMinutes: Int? = null,
+        deliveryRadiusKm: Double? = null,
+    ) {
         if (name.isBlank()) { error = "Enter the restaurant name"; return }
         launchSafe {
             busy = true
             try {
-                restaurant = Repo.createRestaurant(name.trim(), description.trim(), address.trim(), phone.trim())
+                restaurant = Repo.createRestaurant(
+                    name = name.trim(),
+                    description = description.trim(),
+                    address = address.trim(),
+                    phone = phone.trim(),
+                    email = email.trim(),
+                    categoryId = categoryId,
+                    imageUrl = imageUrl,
+                    coverImageUrl = coverImageUrl,
+                    city = city.trim(),
+                    district = district.trim(),
+                    postalCode = postalCode.trim(),
+                    businessRegistrationNo = businessRegistrationNo.trim(),
+                    minOrderAmount = minOrderAmount,
+                    estimatedPrepTimeMinutes = estimatedPrepTimeMinutes,
+                    deliveryRadiusKm = deliveryRadiusKm,
+                )
             } finally {
                 busy = false
             }
         }
     }
 
-    fun updateRestaurant(name: String, description: String, address: String, phone: String, isOpen: Boolean) {
+    fun updateRestaurant(
+        name: String,
+        description: String,
+        address: String,
+        phone: String,
+        email: String = "",
+        categoryId: String? = null,
+        imageUrl: String? = null,
+        coverImageUrl: String? = null,
+        city: String = "",
+        district: String = "",
+        postalCode: String = "",
+        businessRegistrationNo: String = "",
+        minOrderAmount: Double = 0.0,
+        estimatedPrepTimeMinutes: Int? = null,
+        deliveryRadiusKm: Double? = null,
+        isOpen: Boolean = true,
+    ) {
         val r = restaurant ?: return
         if (name.isBlank()) { error = "Enter the restaurant name"; return }
         launchSafe {
-            Repo.updateRestaurant(r.id, name.trim(), description.trim(), address.trim(), phone.trim(), isOpen)
+            Repo.updateRestaurant(
+                id = r.id,
+                name = name.trim(),
+                description = description.trim(),
+                address = address.trim(),
+                phone = phone.trim(),
+                email = email.trim(),
+                categoryId = categoryId,
+                imageUrl = imageUrl,
+                coverImageUrl = coverImageUrl,
+                city = city.trim(),
+                district = district.trim(),
+                postalCode = postalCode.trim(),
+                businessRegistrationNo = businessRegistrationNo.trim(),
+                minOrderAmount = minOrderAmount,
+                estimatedPrepTimeMinutes = estimatedPrepTimeMinutes,
+                deliveryRadiusKm = deliveryRadiusKm,
+                isOpen = isOpen,
+            )
             restaurant = Repo.myRestaurant()
             message = "Saved"
         }

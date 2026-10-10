@@ -61,7 +61,7 @@ fun SmartPreOrderRoot() {
 
 @Composable
 fun AuthScreen(auth: AuthViewModel) {
-    var register by remember { mutableStateOf(false) }
+    var isRegister by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
@@ -83,12 +83,35 @@ fun AuthScreen(auth: AuthViewModel) {
                 color = MaterialTheme.colorScheme.outline)
             Spacer(Modifier.height(12.dp))
 
-            if (register) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Clear Log In vs Register Tab Switch
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = !isRegister,
+                    onClick = { isRegister = false; auth.info = null },
+                    label = { Text("Log In", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                    modifier = Modifier.weight(1f)
+                )
+                FilterChip(
+                    selected = isRegister,
+                    onClick = { isRegister = true; auth.info = null },
+                    label = { Text("Register", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            if (isRegister) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     FilterChip(selected = role == "customer", onClick = { role = "customer" },
-                        label = { Text("I'm a customer") })
+                        label = { Text("Customer") })
                     FilterChip(selected = role == "restaurant", onClick = { role = "restaurant" },
-                        label = { Text("I own a restaurant") })
+                        label = { Text("Restaurant") })
+                    FilterChip(selected = role == "admin", onClick = { role = "admin" },
+                        label = { Text("Admin") })
                 }
                 OutlinedTextField(name, { name = it }, label = { Text("Full name") },
                     singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -108,15 +131,15 @@ fun AuthScreen(auth: AuthViewModel) {
 
             Button(
                 onClick = {
-                    if (register) auth.register(email, password, name, phone, role)
+                    if (isRegister) auth.register(email, password, name, phone, role)
                     else auth.login(email, password)
                 },
                 enabled = !auth.busy,
                 modifier = Modifier.fillMaxWidth()
-            ) { Text(if (auth.busy) "Please wait..." else if (register) "Create account" else "Log in") }
+            ) { Text(if (auth.busy) "Please wait..." else if (isRegister) "Create account" else "Log in") }
 
-            TextButton(onClick = { register = !register; auth.info = null }) {
-                Text(if (register) "I already have an account" else "New here? Create an account")
+            TextButton(onClick = { isRegister = !isRegister; auth.info = null }) {
+                Text(if (isRegister) "I already have an account" else "New here? Create an account")
             }
         }
     }

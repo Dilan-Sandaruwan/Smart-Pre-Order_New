@@ -30,12 +30,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import android.content.Context
+import android.net.Uri
+import java.io.File
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+fun saveImageLocally(context: Context, uri: Uri): String? {
+    return try {
+        val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+        val file = File(context.filesDir, "img_${System.currentTimeMillis()}_${(1000..9999).random()}.jpg")
+        file.outputStream().use { outputStream ->
+            inputStream.copyTo(outputStream)
+        }
+        file.toURI().toString()
+    } catch (e: Exception) {
+        null
+    }
+}
 
 val ACTIVE_STATUSES = setOf("pending", "accepted", "preparing", "ready")
 

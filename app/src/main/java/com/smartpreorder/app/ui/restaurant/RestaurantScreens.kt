@@ -2,6 +2,9 @@
 
 package com.smartpreorder.app.ui.restaurant
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,11 +13,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -43,6 +50,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import com.smartpreorder.app.ui.saveImageLocally
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -85,37 +97,8 @@ fun RestaurantApp(auth: AuthViewModel, profile: Profile) {
 
     when {
         !vm.loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        vm.restaurant == null -> RestaurantSetupScreen(vm, auth)
+        vm.restaurant == null -> RestaurantRegisterScreen(vm, auth)
         else -> RestaurantTabs(vm, auth)
-    }
-}
-
-/** First login of a restaurant owner: create the restaurant profile. */
-@Composable
-private fun RestaurantSetupScreen(vm: RestaurantViewModel, auth: AuthViewModel) {
-    var name by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    val snack = remember { SnackbarHostState() }
-    Notices(vm, snack)
-
-    Scaffold(snackbarHost = { SnackbarHost(snack) }) { pad ->
-        Column(
-            Modifier.padding(pad).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text("Set up your restaurant", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("Customers will see these details. You can change them later.", color = MaterialTheme.colorScheme.outline)
-            OutlinedTextField(name, { name = it }, label = { Text("Restaurant name *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(address, { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
-            Button(onClick = { vm.createRestaurant(name, desc, address, phone) }, enabled = !vm.busy,
-                modifier = Modifier.fillMaxWidth()) { Text("Create restaurant") }
-            TextButton(onClick = { auth.logout() }) { Text("Log out") }
-        }
     }
 }
 
@@ -449,11 +432,32 @@ private fun SalesTab(vm: RestaurantViewModel) {
 @Composable
 private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
     val r = vm.restaurant ?: return
+    val context = LocalContext.current
+
     var name by remember(r.id) { mutableStateOf(r.name) }
     var desc by remember(r.id) { mutableStateOf(r.description.orEmpty()) }
-    var address by remember(r.id) { mutableStateOf(r.address.orEmpty()) }
+    var email by remember(r.id) { mutableStateOf(r.email.orEmpty()) }
     var phone by remember(r.id) { mutableStateOf(r.phone.orEmpty()) }
+    var imageUrl by remember(r.id) { mutableStateOf(r.imageUrl.orEmpty()) }
+    var coverImageUrl by remember(r.id) { mutableStateOf(r.coverImageUrl.orEmpty()) }
+
+    var address by remember(r.id) { mutableStateOf(r.address.orEmpty()) }
+    var city by remember(r.id) { mutableStateOf(r.city.orEmpty()) }
+    var district by remember(r.id) { mutableStateOf(r.district.orEmpty()) }
+    var postalCode by remember(r.id) { mutableStateOf(r.postalCode.orEmpty()) }
+
+    var businessRegNo by remember(r.id) { mutableStateOf(r.businessRegistrationNo.orEmpty()) }
+    var minOrderAmount by remember(r.id) { mutableStateOf(if (r.minOrderAmount > 0) r.minOrderAmount.toString() else "") }
+    var prepTime by remember(r.id) { mutableStateOf(r.estimatedPrepTimeMinutes?.toString().orEmpty()) }
+    var deliveryRadius by remember(r.id) { mutableStateOf(r.deliveryRadiusKm?.toString().orEmpty()) }
     var open by remember(r.id) { mutableStateOf(r.isOpen) }
+
+    val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { saveImageLocally(context, it)?.let { path -> imageUrl = path } }
+    }
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let { saveImageLocally(context, it)?.let { path -> coverImageUrl = path } }
+    }
 
     Column(
         Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
@@ -465,6 +469,7 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
             Text("The administrator has deactivated this restaurant. Customers can't see it.",
                 color = MaterialTheme.colorScheme.error)
         }
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Accepting orders", fontWeight = FontWeight.SemiBold)
@@ -473,11 +478,85 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
             }
             Switch(checked = open, onCheckedChange = { open = it })
         }
+
+        Section("Restaurant Images")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (imageUrl.isNotBlank()) {
+                        AsyncImage(model = imageUrl, contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    } else {
+                        Icon(Ic.Store, null, tint = MaterialTheme.colorScheme.outline)
+                    }
+                }
+                TextButton(onClick = { logoPicker.launch("image/*") }) { Text(if (imageUrl.isBlank()) "Add Logo" else "Change Logo") }
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (coverImageUrl.isNotBlank()) {
+                        AsyncImage(model = coverImageUrl, contentDescription = "Cover", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    } else {
+                        Text("Cover Photo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+                TextButton(onClick = { coverPicker.launch("image/*") }) { Text(if (coverImageUrl.isBlank()) "Add Cover" else "Change Cover") }
+            }
+        }
+
+        Section("Basic Information")
         OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(address, { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(email, { email = it }, label = { Text("Business Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { vm.updateRestaurant(name, desc, address, phone, open) }, modifier = Modifier.fillMaxWidth()) { Text("Save") }
+        OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+
+        Section("Location")
+        OutlinedTextField(address, { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(city, { city = it }, label = { Text("City") }, singleLine = true, modifier = Modifier.weight(1f))
+            OutlinedTextField(district, { district = it }, label = { Text("District") }, singleLine = true, modifier = Modifier.weight(1f))
+        }
+        OutlinedTextField(postalCode, { postalCode = it }, label = { Text("Postal Code") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+        Section("Business & Operations")
+        OutlinedTextField(businessRegNo, { businessRegNo = it }, label = { Text("Business Registration No.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(minOrderAmount, { minOrderAmount = it }, label = { Text("Min Order (Rs.)") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+            OutlinedTextField(prepTime, { prepTime = it }, label = { Text("Est. Prep (min)") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+        }
+        OutlinedTextField(deliveryRadius, { deliveryRadius = it }, label = { Text("Delivery Radius (km)") }, singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+
+        Button(
+            onClick = {
+                vm.updateRestaurant(
+                    name = name,
+                    description = desc,
+                    address = address,
+                    phone = phone,
+                    email = email,
+                    imageUrl = imageUrl,
+                    coverImageUrl = coverImageUrl,
+                    city = city,
+                    district = district,
+                    postalCode = postalCode,
+                    businessRegistrationNo = businessRegNo,
+                    minOrderAmount = minOrderAmount.toDoubleOrNull() ?: 0.0,
+                    estimatedPrepTimeMinutes = prepTime.toIntOrNull(),
+                    deliveryRadiusKm = deliveryRadius.toDoubleOrNull(),
+                    isOpen = open
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Save") }
+
         OutlinedButton(onClick = { auth.logout() }, modifier = Modifier.fillMaxWidth()) {
             Icon(Ic.Logout, null)
             Spacer(Modifier.padding(horizontal = 4.dp))

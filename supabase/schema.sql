@@ -15,16 +15,32 @@ create table public.profiles (
 );
 
 create table public.restaurants (
-  id          uuid primary key default gen_random_uuid(),
-  owner_id    uuid not null references public.profiles(id) on delete cascade,
-  name        text not null,
-  description text,
-  address     text,
-  phone       text,
-  image_url   text,
-  is_open     boolean not null default true,    -- owner toggles (accepting orders)
-  is_active   boolean not null default true,    -- admin toggles (listed in the app)
-  created_at  timestamptz not null default now()
+  id                          uuid primary key default gen_random_uuid(),
+  owner_id                    uuid not null references public.profiles(id) on delete cascade,
+  name                        text not null,
+  description                 text,
+  address                     text,
+  phone                       text,
+  email                       text,
+  category_id                 uuid,
+  image_url                   text,
+  cover_image_url             text,
+  city                        text,
+  district                    text,
+  postal_code                 text,
+  latitude                    double precision,
+  longitude                   double precision,
+  business_registration_no    text,
+  min_order_amount            numeric(10,2) not null default 0,
+  estimated_prep_time_minutes integer,
+  delivery_radius_km          numeric(6,2),
+  approval_status             text not null default 'pending' check (approval_status in ('pending','under_review','approved','rejected')),
+  rejection_reason            text,
+  submitted_at                timestamptz,
+  approved_at                 timestamptz,
+  is_open                     boolean not null default true,    -- owner toggles (accepting orders)
+  is_active                   boolean not null default true,    -- admin toggles (listed in the app)
+  created_at                  timestamptz not null default now()
 );
 create unique index restaurants_one_per_owner on public.restaurants(owner_id);
 
@@ -138,7 +154,11 @@ begin
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', ''),
     new.raw_user_meta_data->>'phone',
-    case when new.raw_user_meta_data->>'role' = 'restaurant' then 'restaurant' else 'customer' end
+    case
+      when new.raw_user_meta_data->>'role' in ('admin', 'restaurant', 'customer')
+      then new.raw_user_meta_data->>'role'
+      else 'customer'
+    end
   );
   return new;
 end $$;
