@@ -387,7 +387,13 @@ private fun MenuTab(vm: RestaurantViewModel) {
             item { Spacer(Modifier.padding(40.dp)) }
         }
         FloatingActionButton(
-            onClick = { adding = true },
+            onClick = {
+                if (vm.restaurant?.approvalStatus == "approved") {
+                    adding = true
+                } else {
+                    vm.error = "Menu creation is disabled until your restaurant is approved by an administrator."
+                }
+            },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
         ) { Icon(Ic.Add, "Add item") }
     }
