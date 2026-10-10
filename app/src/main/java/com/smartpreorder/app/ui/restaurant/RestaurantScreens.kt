@@ -1,0 +1,487 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
+package com.smartpreorder.app.ui.restaurant
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.smartpreorder.app.data.MenuItem
+import com.smartpreorder.app.data.Order
+import com.smartpreorder.app.data.Profile
+import com.smartpreorder.app.data.Repo
+import com.smartpreorder.app.ui.AuthViewModel
+import com.smartpreorder.app.ui.ConfirmDialog
+import com.smartpreorder.app.ui.EmptyState
+import com.smartpreorder.app.ui.Ic
+import com.smartpreorder.app.ui.Notices
+import com.smartpreorder.app.ui.RestaurantViewModel
+import com.smartpreorder.app.ui.Section
+import com.smartpreorder.app.ui.SmallTag
+import com.smartpreorder.app.ui.StatCard
+import com.smartpreorder.app.ui.StatusChip
+import com.smartpreorder.app.ui.formatTime
+import com.smartpreorder.app.ui.money
+import com.smartpreorder.app.ui.orderTypeLabel
+import com.smartpreorder.app.ui.shortId
+
+// =====================================================================
+//  Restaurant role: entry
+// =====================================================================
+@Composable
+fun RestaurantApp(auth: AuthViewModel, profile: Profile) {
+    val vm: RestaurantViewModel = viewModel(key = "restaurant-${profile.id}")
+    LaunchedEffect(vm) { vm.start() }
+
+    when {
+        !vm.loaded -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        vm.restaurant == null -> RestaurantSetupScreen(vm, auth)
+        else -> RestaurantTabs(vm, auth)
+    }
+}
+
+/** First login of a restaurant owner: create the restaurant profile. */
+@Composable
+private fun RestaurantSetupScreen(vm: RestaurantViewModel, auth: AuthViewModel) {
+    var name by remember { mutableStateOf("") }
+    var desc by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    val snack = remember { SnackbarHostState() }
+    Notices(vm, snack)
+
+    Scaffold(snackbarHost = { SnackbarHost(snack) }) { pad ->
+        Column(
+            Modifier.padding(pad).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Set up your restaurant", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text("Customers will see these details. You can change them later.", color = MaterialTheme.colorScheme.outline)
+            OutlinedTextField(name, { name = it }, label = { Text("Restaurant name *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(address, { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
+            Button(onClick = { vm.createRestaurant(name, desc, address, phone) }, enabled = !vm.busy,
+                modifier = Modifier.fillMaxWidth()) { Text("Create restaurant") }
+            TextButton(onClick = { auth.logout() }) { Text("Log out") }
+        }
+    }
+}
+
+@Composable
+private fun RestaurantTabs(vm: RestaurantViewModel, auth: AuthViewModel) {
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    val snack = remember { SnackbarHostState() }
+    Notices(vm, snack)
+    Notices(auth, snack)
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snack) },
+        bottomBar = {
+            RestaurantBottomBar(
+                selectedTab = tab,
+                onTabSelected = { tab = it },
+                pendingCount = vm.pendingCount
+            )
+        }
+    ) { pad ->
+        Box(Modifier.padding(pad).fillMaxSize()) {
+            when (tab) {
+                0 -> OrderQueueTab(vm)
+                1 -> MenuTab(vm)
+                2 -> SalesTab(vm)
+                else -> RestaurantProfileTab(vm, auth)
+            }
+        }
+    }
+}
+
+// =====================================================================
+//  Tab 1: live order queue
+// =====================================================================
+@Composable
+private fun OrderQueueTab(vm: RestaurantViewModel) {
+    var etaTarget by remember { mutableStateOf<Order?>(null) }   // accept (pending) or change ETA
+    var rejectTarget by remember { mutableStateOf<Order?>(null) }
+    val active = vm.activeOrders
+
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(vm.restaurant?.name ?: "", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text("Live order queue (${active.size})", color = MaterialTheme.colorScheme.outline)
+                }
+                IconButton(onClick = { vm.refresh() }) { Icon(Ic.Refresh, "Refresh") }
+            }
+        }
+        if (active.isEmpty()) item { EmptyState("No active orders right now.\nNew orders appear here instantly.") }
+        items(active, key = { it.id }) { o ->
+            QueueCard(
+                o,
+                onAccept = { etaTarget = o },
+                onReject = { rejectTarget = o },
+                onChangeEta = { etaTarget = o },
+                onStatus = { s -> vm.setStatus(o, s) }
+            )
+        }
+    }
+
+    etaTarget?.let { o ->
+        EtaDialog(
+            initial = o.estimatedMinutes ?: 15,
+            title = if (o.status == "pending") "Accept order ${shortId(o.id)}" else "Update preparation time",
+            confirmLabel = if (o.status == "pending") "Accept" else "Update",
+            onConfirm = { mins ->
+                if (o.status == "pending") vm.setStatus(o, "accepted", minutes = mins) else vm.setEta(o, mins)
+            },
+            onDismiss = { etaTarget = null }
+        )
+    }
+    rejectTarget?.let { o ->
+        var reason by remember(o.id) { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { rejectTarget = null },
+            title = { Text("Reject order ${shortId(o.id)}") },
+            text = {
+                OutlinedTextField(reason, { reason = it }, label = { Text("Reason (shown to the customer)") },
+                    modifier = Modifier.fillMaxWidth())
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.setStatus(o, "rejected", reason = reason.ifBlank { "Sorry, we can't take this order right now." })
+                    rejectTarget = null
+                }) { Text("Reject") }
+            },
+            dismissButton = { TextButton(onClick = { rejectTarget = null }) { Text("Back") } }
+        )
+    }
+}
+
+@Composable
+private fun QueueCard(
+    o: Order,
+    onAccept: () -> Unit,
+    onReject: () -> Unit,
+    onChangeEta: () -> Unit,
+    onStatus: (String) -> Unit,
+) {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(shortId(o.id), fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
+                SmallTag(orderTypeLabel(o.orderType))
+                Spacer(Modifier.weight(1f))
+                StatusChip(o.status)
+            }
+            Text("${o.customerName ?: "Customer"}  •  ${formatTime(o.createdAt)}", style = MaterialTheme.typography.bodySmall)
+            if (!o.customerPhone.isNullOrBlank()) {
+                Text(o.customerPhone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            }
+            HorizontalDivider()
+            o.items.forEach { Text("${it.quantity}× ${it.itemName}") }
+            if (!o.note.isNullOrBlank()) Text("Note: ${o.note}", color = MaterialTheme.colorScheme.primary)
+            Row {
+                Text(
+                    o.estimatedMinutes?.let { "ETA $it min" } ?: "",
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f)
+                )
+                Text(money(o.total), fontWeight = FontWeight.Bold)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                when (o.status) {
+                    "pending" -> {
+                        OutlinedButton(onClick = onReject, modifier = Modifier.weight(1f)) { Text("Reject") }
+                        Button(onClick = onAccept, modifier = Modifier.weight(1f)) { Text("Accept") }
+                    }
+                    "accepted" -> {
+                        OutlinedButton(onClick = onChangeEta, modifier = Modifier.weight(1f)) { Text("Change ETA") }
+                        Button(onClick = { onStatus("preparing") }, modifier = Modifier.weight(1f)) { Text("Start preparing") }
+                    }
+                    "preparing" -> {
+                        OutlinedButton(onClick = onChangeEta, modifier = Modifier.weight(1f)) { Text("Change ETA") }
+                        Button(onClick = { onStatus("ready") }, modifier = Modifier.weight(1f)) { Text("Mark ready") }
+                    }
+                    "ready" -> Button(onClick = { onStatus("completed") }, modifier = Modifier.fillMaxWidth()) { Text("Mark completed") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EtaDialog(initial: Int, title: String, confirmLabel: String, onConfirm: (Int) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf(initial.toString()) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Estimated preparation time (minutes)")
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(10, 15, 20, 30).forEach { m ->
+                        AssistChip(onClick = { text = m.toString() }, label = { Text("$m") })
+                    }
+                }
+                OutlinedTextField(text, { text = it.filter { c -> c.isDigit() }.take(3) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                onConfirm((text.toIntOrNull() ?: initial).coerceAtLeast(1))
+                onDismiss()
+            }) { Text(confirmLabel) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+// =====================================================================
+//  Tab 2: menu management
+// =====================================================================
+@Composable
+private fun MenuTab(vm: RestaurantViewModel) {
+    var editing by remember { mutableStateOf<MenuItem?>(null) }
+    var adding by remember { mutableStateOf(false) }
+    var deleteTarget by remember { mutableStateOf<MenuItem?>(null) }
+    val catName = vm.categories.associate { it.id to it.name }
+    val grouped = vm.menu.groupBy { catName[it.categoryId] ?: "Uncategorised" }
+
+    Box(Modifier.fillMaxSize()) {
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item { Text("Menu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+            if (vm.menu.isEmpty()) item { EmptyState("Your menu is empty.\nTap + to add your first dish.") }
+            grouped.forEach { (cat, list) ->
+                item { Section(cat) }
+                items(list, key = { it.id }) { m ->
+                    Card(Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(m.name, fontWeight = FontWeight.SemiBold)
+                                Text(money(m.price), color = MaterialTheme.colorScheme.primary)
+                            }
+                            Switch(checked = m.isAvailable, onCheckedChange = { vm.toggleAvailable(m, it) })
+                            IconButton(onClick = { editing = m }) { Icon(Ic.Edit, "Edit") }
+                            IconButton(onClick = { deleteTarget = m }) { Icon(Ic.Delete, "Delete") }
+                        }
+                    }
+                }
+            }
+            item { Spacer(Modifier.padding(40.dp)) }
+        }
+        FloatingActionButton(
+            onClick = { adding = true },
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        ) { Icon(Ic.Add, "Add item") }
+    }
+
+    if (adding) MenuItemDialog(vm, null) { adding = false }
+    editing?.let { m -> MenuItemDialog(vm, m) { editing = null } }
+    deleteTarget?.let { m ->
+        ConfirmDialog("Delete ${m.name}?", "This removes it from your menu. Old orders are not affected.",
+            "Delete", onConfirm = { vm.deleteItem(m) }, onDismiss = { deleteTarget = null })
+    }
+}
+
+@Composable
+private fun MenuItemDialog(vm: RestaurantViewModel, item: MenuItem?, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(item?.name.orEmpty()) }
+    var desc by remember { mutableStateOf(item?.description.orEmpty()) }
+    var price by remember { mutableStateOf(item?.price?.toString().orEmpty()) }
+    var categoryId by remember { mutableStateOf(item?.categoryId) }
+    var available by remember { mutableStateOf(item?.isAvailable ?: true) }
+    var menuOpen by remember { mutableStateOf(false) }
+    var problem by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (item == null) "Add item" else "Edit item") },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text("Name *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(price, { price = it }, label = { Text("Price (Rs.) *") }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+                Box {
+                    OutlinedButton(onClick = { menuOpen = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(vm.categories.firstOrNull { it.id == categoryId }?.name ?: "Category: none")
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(text = { Text("None") }, onClick = { categoryId = null; menuOpen = false })
+                        vm.categories.forEach { c ->
+                            DropdownMenuItem(text = { Text(c.name) }, onClick = { categoryId = c.id; menuOpen = false })
+                        }
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Available", modifier = Modifier.weight(1f))
+                    Switch(checked = available, onCheckedChange = { available = it })
+                }
+                problem?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val p = price.toDoubleOrNull()
+                when {
+                    name.isBlank() -> problem = "Enter a name"
+                    p == null || p < 0 -> problem = "Enter a valid price"
+                    else -> {
+                        vm.saveItem(item?.id, categoryId, name, desc, p, available)
+                        onDismiss()
+                    }
+                }
+            }) { Text("Save") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+// =====================================================================
+//  Tab 3: sales + history
+// =====================================================================
+@Composable
+private fun SalesTab(vm: RestaurantViewModel) {
+    val today = vm.todayCompleted
+    LazyColumn(
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item { Text("Sales", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard("Today's orders", "${today.size}", Modifier.weight(1f))
+                StatCard("Today's sales", money(today.sumOf { it.total }), Modifier.weight(1f))
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard("Completed (all)", "${vm.completed.size}", Modifier.weight(1f))
+                StatCard("Total sales", money(vm.totalSales), Modifier.weight(1f))
+            }
+        }
+        item { Section("Order history") }
+        if (vm.historyOrders.isEmpty()) item { EmptyState("No finished orders yet.") }
+        items(vm.historyOrders, key = { "h-" + it.id }) { o ->
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("${shortId(o.id)}  ${o.customerName ?: ""}", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        StatusChip(o.status)
+                    }
+                    Text(o.items.joinToString { "${it.quantity}× ${it.itemName}" }, style = MaterialTheme.typography.bodySmall)
+                    Row {
+                        Text(formatTime(o.createdAt), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
+                        Text(money(o.total), fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// =====================================================================
+//  Tab 4: restaurant profile
+// =====================================================================
+@Composable
+private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
+    val r = vm.restaurant ?: return
+    var name by remember(r.id) { mutableStateOf(r.name) }
+    var desc by remember(r.id) { mutableStateOf(r.description.orEmpty()) }
+    var address by remember(r.id) { mutableStateOf(r.address.orEmpty()) }
+    var phone by remember(r.id) { mutableStateOf(r.phone.orEmpty()) }
+    var open by remember(r.id) { mutableStateOf(r.isOpen) }
+
+    Column(
+        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Restaurant profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(Repo.email(), color = MaterialTheme.colorScheme.outline)
+        if (!r.isActive) {
+            Text("The administrator has deactivated this restaurant. Customers can't see it.",
+                color = MaterialTheme.colorScheme.error)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Accepting orders", fontWeight = FontWeight.SemiBold)
+                Text("Turn off when you're closed or too busy", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline)
+            }
+            Switch(checked = open, onCheckedChange = { open = it })
+        }
+        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(address, { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        Button(onClick = { vm.updateRestaurant(name, desc, address, phone, open) }, modifier = Modifier.fillMaxWidth()) { Text("Save") }
+        OutlinedButton(onClick = { auth.logout() }, modifier = Modifier.fillMaxWidth()) {
+            Icon(Ic.Logout, null)
+            Spacer(Modifier.padding(horizontal = 4.dp))
+            Text("Log out")
+        }
+    }
+}
