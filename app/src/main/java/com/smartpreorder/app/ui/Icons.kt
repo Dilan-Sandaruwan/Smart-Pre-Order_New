@@ -20,6 +20,8 @@ import androidx.compose.material.icons.filled.Report
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.RestaurantMenu
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -50,4 +52,6 @@ object Ic {
     val Report = Icons.Filled.Report
     val Chart = Icons.Filled.BarChart
     val Refresh = Icons.Filled.Refresh
+    val Settings = Icons.Filled.Settings
+    val Security = Icons.Filled.Security
 }

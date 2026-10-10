@@ -3,6 +3,7 @@
 package com.smartpreorder.app.ui.admin
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -17,8 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -65,11 +64,11 @@ fun AdminApp(auth: AuthViewModel, profile: Profile) {
     Notices(vm, snack)
     Notices(auth, snack)
 
-    val titles = listOf("Dashboard", "Restaurants", "Users", "Orders", "Manage")
+    val titles = listOf("Dashboard Overview", "Restaurant Management", "User Management", "Orders & Activity", "Settings & Security")
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Admin • ${titles[tab]}") },
+                title = { Text(titles[tab]) },
                 actions = {
                     IconButton(onClick = { vm.refresh() }) { Icon(Ic.Refresh, "Refresh") }
                     IconButton(onClick = { auth.logout() }) { Icon(Ic.Logout, "Log out") }
@@ -84,7 +83,7 @@ fun AdminApp(auth: AuthViewModel, profile: Profile) {
             )
         }
     ) { pad ->
-        Column(Modifier.padding(pad).fillMaxSize()) {
+        Box(Modifier.padding(pad).fillMaxSize()) {
             when (tab) {
                 0 -> AdminDashboard(vm)
                 1 -> AdminRestaurants(vm)
@@ -215,9 +214,24 @@ private fun AdminManage(vm: AdminViewModel) {
     var newCat by remember { mutableStateOf("") }
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
+        item { Section("System Security & Status") }
+        item {
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Ic.Security, "Security", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(end = 8.dp))
+                        Text("Security & RLS Policies", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    }
+                    Text("• Row Level Security (RLS): Active on all tables", style = MaterialTheme.typography.bodyMedium)
+                    Text("• Authentication: Encrypted JWT via Supabase", style = MaterialTheme.typography.bodyMedium)
+                    Text("• Admin Controls: User blocking & Restaurant verification", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        }
+
         item { Section("Reported content (${vm.reports.size})") }
         if (vm.reports.isEmpty()) item { Text("No open reports.", color = MaterialTheme.colorScheme.outline) }
         items(vm.reports, key = { "r-" + it.id }) { r ->
