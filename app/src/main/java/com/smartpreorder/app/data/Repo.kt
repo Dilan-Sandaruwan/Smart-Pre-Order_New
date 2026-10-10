@@ -74,7 +74,10 @@ object Repo {
     // -------------------------------------------------------- customer
     suspend fun restaurants(): List<Restaurant> =
         db.from("restaurants").select {
-            filter { eq("is_active", true) }
+            filter {
+                eq("is_active", true)
+                eq("approval_status", "approved")
+            }
             order("name", SortOrder.ASCENDING)
         }.decodeList()
 
@@ -274,6 +277,15 @@ object Repo {
 
     suspend fun setRestaurantActive(id: String, active: Boolean) {
         db.from("restaurants").update(buildJsonObject { put("is_active", active) }) {
+            filter { eq("id", id) }
+        }
+    }
+
+    suspend fun approveRestaurant(id: String, approved: Boolean) {
+        db.from("restaurants").update(buildJsonObject {
+            put("approval_status", if (approved) "approved" else "rejected")
+            put("is_active", approved)
+        }) {
             filter { eq("id", id) }
         }
     }

@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,6 +66,8 @@ fun AdminApp(auth: AuthViewModel, profile: Profile) {
     Notices(vm, snack)
     Notices(auth, snack)
 
+    val pendingApprovalCount = vm.restaurants.count { it.approvalStatus == "pending" }
+
     val titles = listOf("Dashboard Overview", "Restaurant Management", "User Management", "Orders & Activity", "Settings & Security")
     Scaffold(
         topBar = {
@@ -79,14 +83,15 @@ fun AdminApp(auth: AuthViewModel, profile: Profile) {
         bottomBar = {
             AdminBottomBar(
                 selectedTab = tab,
-                onTabSelected = { tab = it }
+                onTabSelected = { tab = it },
+                pendingApprovalCount = pendingApprovalCount
             )
         }
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             when (tab) {
                 0 -> AdminDashboard(vm)
-                1 -> AdminRestaurants(vm)
+                1 -> RestaurantApprovalScreen(vm)
                 2 -> AdminUsers(vm, auth.profile?.id)
                 3 -> AdminOrders(vm)
                 else -> AdminManage(vm)
@@ -121,33 +126,6 @@ private fun AdminDashboard(vm: AdminViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 StatusChip(st)
                 Text("  ${s.byStatus[st] ?: 0}", fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdminRestaurants(vm: AdminViewModel) {
-    LazyColumn(
-        contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.fillMaxSize()
-    ) {
-        if (vm.restaurants.isEmpty()) item { EmptyState("No restaurants registered yet.") }
-        items(vm.restaurants, key = { it.id }) { r ->
-            Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(r.name, fontWeight = FontWeight.Bold)
-                        Text(r.address ?: "No address", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline)
-                        Text(if (r.isOpen) "Accepting orders" else "Closed by owner", style = MaterialTheme.typography.bodySmall)
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Active", style = MaterialTheme.typography.labelSmall)
-                        Switch(checked = r.isActive, onCheckedChange = { vm.setRestaurantActive(r, it) })
-                    }
-                }
             }
         }
     }

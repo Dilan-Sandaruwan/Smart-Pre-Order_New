@@ -146,6 +146,8 @@ data class NewRestaurant(
     @SerialName("min_order_amount") val minOrderAmount: Double = 0.0,
     @SerialName("estimated_prep_time_minutes") val estimatedPrepTimeMinutes: Int? = null,
     @SerialName("delivery_radius_km") val deliveryRadiusKm: Double? = null,
+    @SerialName("approval_status") val approvalStatus: String = "pending",
+    @SerialName("is_active") val isActive: Boolean = false,
 )
 
 @Serializable

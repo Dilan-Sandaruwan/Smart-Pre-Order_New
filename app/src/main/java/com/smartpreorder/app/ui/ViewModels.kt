@@ -474,7 +474,12 @@ class AdminViewModel : BaseVm() {
     var reports by mutableStateOf<List<Report>>(emptyList())
 
     fun refresh() = launchSafe {
-        stats = Repo.adminStats()
+        val p = Repo.myProfile()
+        if (p.role != "admin") {
+            error = "Admin permission required. Please update role = 'admin' in Supabase public.profiles table."
+            return@launchSafe
+        }
+        stats = orNull { Repo.adminStats() } ?: AdminStats()
         restaurants = Repo.allRestaurants()
         users = Repo.allProfiles()
         orders = Repo.allOrders()
@@ -485,6 +490,12 @@ class AdminViewModel : BaseVm() {
     fun setRestaurantActive(r: Restaurant, active: Boolean) = launchSafe {
         Repo.setRestaurantActive(r.id, active)
         restaurants = Repo.allRestaurants()
+    }
+
+    fun approveRestaurant(r: Restaurant, approved: Boolean) = launchSafe {
+        Repo.approveRestaurant(r.id, approved)
+        restaurants = Repo.allRestaurants()
+        message = if (approved) "${r.name} approved!" else "${r.name} rejected"
     }
 
     fun setBlocked(p: Profile, blocked: Boolean) = launchSafe {

@@ -1,5 +1,7 @@
 package com.smartpreorder.app.ui.admin
 
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -11,7 +13,8 @@ import com.smartpreorder.app.ui.Ic
 @Composable
 fun AdminBottomBar(
     selectedTab: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    pendingApprovalCount: Int = 0
 ) {
     NavigationBar {
         NavigationBarItem(
@@ -23,7 +26,11 @@ fun AdminBottomBar(
         NavigationBarItem(
             selected = selectedTab == 1,
             onClick = { onTabSelected(1) },
-            icon = { Icon(Ic.Store, "Stores") },
+            icon = {
+                BadgedBox(badge = { if (pendingApprovalCount > 0) Badge { Text("$pendingApprovalCount") } }) {
+                    Icon(Ic.Store, "Stores")
+                }
+            },
             label = { Text("Stores", maxLines = 1, overflow = TextOverflow.Ellipsis) }
         )
         NavigationBarItem(
@@ -46,4 +53,3 @@ fun AdminBottomBar(
         )
     }
 }
-

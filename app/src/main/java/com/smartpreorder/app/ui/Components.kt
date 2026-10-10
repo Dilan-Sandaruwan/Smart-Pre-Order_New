@@ -83,8 +83,13 @@ fun formatTime(iso: String?): String =
 
 fun isToday(iso: String?): Boolean = parseTime(iso)?.toLocalDate() == LocalDate.now()
 
-fun Throwable.friendly(): String =
-    (message ?: "Something went wrong").lineSequence().first().take(200)
+fun Throwable.friendly(): String {
+    val msg = message ?: "Something went wrong"
+    if (msg.contains("Unexpected JSON token") || msg.contains("Expected start of the array") || msg.contains("Admins only")) {
+        return "Admin permission required. Please update your profile role to 'admin' in Supabase database."
+    }
+    return msg.lineSequence().first().take(200)
+}
 
 @Composable
 fun StatusChip(status: String) {

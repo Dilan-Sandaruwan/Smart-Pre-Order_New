@@ -30,6 +30,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -64,6 +65,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,7 @@ import com.smartpreorder.app.data.MenuItem
 import com.smartpreorder.app.data.Order
 import com.smartpreorder.app.data.Profile
 import com.smartpreorder.app.data.Repo
+import com.smartpreorder.app.data.Restaurant
 import com.smartpreorder.app.ui.AuthViewModel
 import com.smartpreorder.app.ui.ConfirmDialog
 import com.smartpreorder.app.ui.EmptyState
@@ -130,6 +133,74 @@ private fun RestaurantTabs(vm: RestaurantViewModel, auth: AuthViewModel) {
     }
 }
 
+@Composable
+fun RestaurantApprovalBanner(r: Restaurant?) {
+    if (r == null) return
+    if (r.approvalStatus == "pending" || !r.isActive) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFFFF3CD)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Ic.Report,
+                    contentDescription = null,
+                    tint = Color(0xFF7A5B00),
+                    modifier = Modifier.padding(end = 12.dp)
+                )
+                Column {
+                    Text(
+                        "Pending Admin Approval",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF7A5B00)
+                    )
+                    Text(
+                        "Your restaurant is awaiting approval by an administrator. Customers cannot view your menu or place orders until approved.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF7A5B00)
+                    )
+                }
+            }
+        }
+    } else if (r.approvalStatus == "rejected") {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = Color(0xFFFFD6D6)
+            )
+        ) {
+            Row(
+                modifier = Modifier.padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Ic.Close,
+                    contentDescription = null,
+                    tint = Color(0xFF8F1111),
+                    modifier = Modifier.padding(end = 12.dp)
+                )
+                Column {
+                    Text(
+                        "Registration Rejected",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF8F1111)
+                    )
+                    Text(
+                        "Your restaurant registration was rejected by the administrator. Food sales are disabled.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF8F1111)
+                    )
+                }
+            }
+        }
+    }
+}
+
 // =====================================================================
 //  Tab 1: live order queue
 // =====================================================================
@@ -153,6 +224,7 @@ private fun OrderQueueTab(vm: RestaurantViewModel) {
                 IconButton(onClick = { vm.refresh() }) { Icon(Ic.Refresh, "Refresh") }
             }
         }
+        item { RestaurantApprovalBanner(vm.restaurant) }
         if (active.isEmpty()) item { EmptyState("No active orders right now.\nNew orders appear here instantly.") }
         items(active, key = { it.id }) { o ->
             QueueCard(
@@ -294,6 +366,7 @@ private fun MenuTab(vm: RestaurantViewModel) {
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             item { Text("Menu", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
+            item { RestaurantApprovalBanner(vm.restaurant) }
             if (vm.menu.isEmpty()) item { EmptyState("Your menu is empty.\nTap + to add your first dish.") }
             grouped.forEach { (cat, list) ->
                 item { Section(cat) }
@@ -465,10 +538,7 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
     ) {
         Text("Restaurant profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(Repo.email(), color = MaterialTheme.colorScheme.outline)
-        if (!r.isActive) {
-            Text("The administrator has deactivated this restaurant. Customers can't see it.",
-                color = MaterialTheme.colorScheme.error)
-        }
+        RestaurantApprovalBanner(r)
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
