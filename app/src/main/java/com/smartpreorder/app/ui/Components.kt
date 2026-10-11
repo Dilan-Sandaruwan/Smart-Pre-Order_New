@@ -72,7 +72,14 @@ suspend fun uploadImageToSupabase(context: Context, uri: Uri, folder: String = "
 
     bucket.upload(fileName, byteArray)
 
-    return bucket.publicUrl(fileName)
+    return bucket.publicUrl(fileName).replace(" ", "%20")
+}
+
+fun sanitizeImageUrl(url: String?): String? {
+    if (url.isNullOrBlank()) return null
+    val trimmed = url.trim()
+    if (trimmed.startsWith("data:image")) return trimmed
+    return trimmed.replace(" ", "%20")
 }
 
 fun saveImageLocally(context: Context, uri: Uri): String? {

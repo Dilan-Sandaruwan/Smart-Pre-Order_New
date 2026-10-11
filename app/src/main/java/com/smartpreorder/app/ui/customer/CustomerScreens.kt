@@ -2,6 +2,7 @@
 
 package com.smartpreorder.app.ui.customer
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -61,7 +62,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -88,6 +91,7 @@ import com.smartpreorder.app.ui.StatusStepper
 import com.smartpreorder.app.ui.formatTime
 import com.smartpreorder.app.ui.money
 import com.smartpreorder.app.ui.orderTypeLabel
+import com.smartpreorder.app.ui.sanitizeImageUrl
 import com.smartpreorder.app.ui.shortId
 
 // =====================================================================
@@ -208,6 +212,7 @@ val DEFAULT_OFFERS = listOf(
 
 @Composable
 private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
+    LaunchedEffect(Unit) { vm.refreshRestaurants() }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
     val q = vm.query.trim()
     val cat = selectedCategory
@@ -429,6 +434,9 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
 
 @Composable
 private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val coverUrl = sanitizeImageUrl(r.coverImageUrl)
+    val logoUrl = sanitizeImageUrl(r.imageUrl)
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
@@ -440,29 +448,28 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                     .fillMaxWidth()
                     .height(130.dp)
             ) {
-                if (!r.coverImageUrl.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("🍽️ ${r.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                if (!coverUrl.isNullOrBlank()) {
                     AsyncImage(
-                        model = r.coverImageUrl,
+                        model = ImageRequest.Builder(context)
+                            .data(coverUrl)
+                            .crossfade(true)
+                            .listener(onError = { _, result ->
+                                Log.e("RestaurantCard", "Error loading coverUrl: $coverUrl", result.throwable)
+                            })
+                            .build(),
                         contentDescription = "Cover",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
-                } else if (!r.imageUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = r.imageUrl,
-                        contentDescription = "Cover",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("🍽️ ${r.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
-                    }
                 }
 
                 Surface(
@@ -481,7 +488,7 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
 
                 Surface(
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface,
+                    color = MaterialTheme.colorScheme.primaryContainer,
                     shadowElevation = 4.dp,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
@@ -490,19 +497,24 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                         .size(56.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        if (!r.imageUrl.isNullOrBlank()) {
+                        Text(
+                            r.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        if (!logoUrl.isNullOrBlank()) {
                             AsyncImage(
-                                model = r.imageUrl,
+                                model = ImageRequest.Builder(context)
+                                    .data(logoUrl)
+                                    .crossfade(true)
+                                    .listener(onError = { _, result ->
+                                        Log.e("RestaurantCard", "Error loading logoUrl: $logoUrl", result.throwable)
+                                    })
+                                    .build(),
                                 contentDescription = "Logo",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize().clip(CircleShape)
-                            )
-                        } else {
-                            Text(
-                                r.name.take(1).uppercase(),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -606,6 +618,8 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
         ) {
             item {
                 if (r != null) {
+                    val coverUrl = sanitizeImageUrl(r.coverImageUrl)
+                    val logoUrl = sanitizeImageUrl(r.imageUrl)
                     Card(
                         shape = RoundedCornerShape(16.dp),
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
@@ -616,16 +630,9 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
                                     .fillMaxWidth()
                                     .height(140.dp)
                             ) {
-                                if (!r.coverImageUrl.isNullOrBlank()) {
+                                if (!coverUrl.isNullOrBlank()) {
                                     AsyncImage(
-                                        model = r.coverImageUrl,
-                                        contentDescription = "Cover",
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else if (!r.imageUrl.isNullOrBlank()) {
-                                    AsyncImage(
-                                        model = r.imageUrl,
+                                        model = coverUrl,
                                         contentDescription = "Cover",
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
@@ -657,9 +664,9 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
                                         .size(60.dp)
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
-                                        if (!r.imageUrl.isNullOrBlank()) {
+                                        if (!logoUrl.isNullOrBlank()) {
                                             AsyncImage(
-                                                model = r.imageUrl,
+                                                model = logoUrl,
                                                 contentDescription = "Logo",
                                                 contentScale = ContentScale.Crop,
                                                 modifier = Modifier.fillMaxSize().clip(CircleShape)

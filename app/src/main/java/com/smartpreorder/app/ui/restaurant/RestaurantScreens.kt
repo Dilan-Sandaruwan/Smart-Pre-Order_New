@@ -594,7 +594,16 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
             isUploadingLogo = true
             scope.launch {
                 try {
-                    imageUrl = uploadImageToSupabase(context, it, "logos")
+                    val url = uploadImageToSupabase(context, it, "logos")
+                    imageUrl = url
+                    vm.updateRestaurant(
+                        name = name, description = desc, address = address, phone = phone, email = email,
+                        imageUrl = url, coverImageUrl = coverImageUrl, city = city, district = district,
+                        postalCode = postalCode, businessRegistrationNo = businessRegNo,
+                        minOrderAmount = minOrderAmount.toDoubleOrNull() ?: 0.0,
+                        estimatedPrepTimeMinutes = prepTime.toIntOrNull(),
+                        deliveryRadiusKm = deliveryRadius.toDoubleOrNull(), isOpen = open
+                    )
                 } catch (e: Exception) {
                     vm.error = "Upload failed: ${e.friendly()}"
                 } finally {
@@ -608,7 +617,16 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
             isUploadingCover = true
             scope.launch {
                 try {
-                    coverImageUrl = uploadImageToSupabase(context, it, "covers")
+                    val url = uploadImageToSupabase(context, it, "covers")
+                    coverImageUrl = url
+                    vm.updateRestaurant(
+                        name = name, description = desc, address = address, phone = phone, email = email,
+                        imageUrl = imageUrl, coverImageUrl = url, city = city, district = district,
+                        postalCode = postalCode, businessRegistrationNo = businessRegNo,
+                        minOrderAmount = minOrderAmount.toDoubleOrNull() ?: 0.0,
+                        estimatedPrepTimeMinutes = prepTime.toIntOrNull(),
+                        deliveryRadiusKm = deliveryRadius.toDoubleOrNull(), isOpen = open
+                    )
                 } catch (e: Exception) {
                     vm.error = "Upload failed: ${e.friendly()}"
                 } finally {
