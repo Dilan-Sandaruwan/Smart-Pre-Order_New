@@ -847,19 +847,30 @@ private fun CartScreen(vm: CustomerViewModel, nav: NavHostController) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("My Cart") },
+                title = { Text("My Cart", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Ic.Back, "Back") } }
             )
         },
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
             if (vm.cart.isNotEmpty()) {
-                Surface(tonalElevation = 3.dp) {
+                Surface(
+                    tonalElevation = 8.dp,
+                    shadowElevation = 8.dp
+                ) {
                     Button(
                         onClick = { confirmOrder = true },
-                        modifier = Modifier.fillMaxWidth().padding(12.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp)
                     ) {
-                        Text("Place Pre-Order  •  ${money(vm.cartTotal)}")
+                        Text(
+                            "Place Pre-Order  •  ${money(vm.cartTotal)}",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                     }
                 }
             }
@@ -873,43 +884,222 @@ private fun CartScreen(vm: CustomerViewModel, nav: NavHostController) {
             LazyColumn(
                 Modifier.padding(pad).fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Cart Item Cards
                 items(vm.cart) { ci ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(ci.displayName, fontWeight = FontWeight.Bold)
-                                Text(money(ci.unitPrice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                            }
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { vm.updateCartQty(ci, ci.qty - 1) }) {
-                                    Text("-", fontWeight = FontWeight.Bold)
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Dish Image Thumbnail
+                            val dishImage = sanitizeImageUrl(ci.item.imageUrl)
+                            if (!dishImage.isNullOrBlank()) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(68.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AsyncImage(
+                                        model = dishImage,
+                                        contentDescription = ci.item.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
                                 }
-                                Text("${ci.qty}", fontWeight = FontWeight.Bold)
-                                IconButton(onClick = { vm.updateCartQty(ci, ci.qty + 1) }) {
-                                    Text("+", fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.width(12.dp))
+                            }
+
+                            // Item details
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    ci.item.name,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+                                ci.selectedPortion?.let { p ->
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                                        shape = RoundedCornerShape(6.dp)
+                                    ) {
+                                        Text(
+                                            p.name,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    "${money(ci.unitPrice)}  •  Total: ${money(ci.lineTotal)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            // Quantity Selector
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { vm.updateCartQty(ci, ci.qty - 1) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            if (ci.qty == 1) {
+                                                Icon(Ic.Delete, "Remove", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                                            } else {
+                                                Text("-", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Text(
+                                    "${ci.qty}",
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium
+                                )
+
+                                IconButton(
+                                    onClick = { vm.updateCartQty(ci, ci.qty + 1) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text("+", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
 
+                // Order Type Selector Card
                 item {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Order Type", fontWeight = FontWeight.Bold)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(selected = orderType == "pickup", onClick = { orderType = "pickup" }, label = { Text("Pickup") })
-                            FilterChip(selected = orderType == "dine_in", onClick = { orderType = "dine_in" }, label = { Text("Dine-in") })
-                        }
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text("Order Type", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (orderType == "pickup") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { orderType = "pickup" }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("🛍️ Pickup", fontWeight = if (orderType == "pickup") FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
 
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = note,
-                            onValueChange = { note = it },
-                            placeholder = { Text("Add a note (e.g. allergies, extra spicy)") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = if (orderType == "dine_in") MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { orderType = "dine_in" }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("🍽️ Dine-in", fontWeight = if (orderType == "dine_in") FontWeight.Bold else FontWeight.Normal)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Instructions / Note Card
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Special Instructions", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            OutlinedTextField(
+                                value = note,
+                                onValueChange = { note = it },
+                                placeholder = { Text("Add notes (e.g. extra spicy, no cutlery)") },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+
+                // Bill Summary Card
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Bill Summary", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Items Total", color = MaterialTheme.colorScheme.outline)
+                                Text(money(vm.cartTotal), fontWeight = FontWeight.SemiBold)
+                            }
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Total Amount", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    money(vm.cartTotal),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
                 }
             }
