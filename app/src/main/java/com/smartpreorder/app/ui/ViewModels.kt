@@ -443,10 +443,20 @@ class RestaurantViewModel : BaseVm() {
         restaurant?.let { loadOrders(it.id, false) }
     }
 
-    fun saveItem(id: String?, categoryId: String?, name: String, description: String, price: Double, available: Boolean, imageUrl: String? = null) {
+    fun saveItem(
+        id: String?,
+        categoryId: String?,
+        categoryName: String?,
+        name: String,
+        description: String,
+        price: Double,
+        portionSizes: List<PortionSize>,
+        available: Boolean,
+        imageUrl: String? = null
+    ) {
         val r = restaurant ?: return
         launchSafe {
-            Repo.saveMenuItem(id, r.id, categoryId, name.trim(), description.trim(), price, available, imageUrl)
+            Repo.saveMenuItem(id, r.id, categoryId, categoryName, name.trim(), description.trim(), price, portionSizes, available, imageUrl)
             menu = Repo.menu(r.id)
         }
     }

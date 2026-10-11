@@ -241,20 +241,39 @@ object Repo {
     }
 
     suspend fun saveMenuItem(
-        id: String?, restaurantId: String, categoryId: String?,
-        name: String, description: String, price: Double, available: Boolean,
+        id: String?,
+        restaurantId: String,
+        categoryId: String?,
+        categoryName: String?,
+        name: String,
+        description: String,
+        price: Double,
+        portionSizes: List<PortionSize>,
+        available: Boolean,
         imageUrl: String? = null
     ) {
         if (id == null) {
             db.from("menu_items").insert(
-                NewMenuItem(restaurantId, categoryId, name, description.ifBlank { null }, price, available, imageUrl?.ifBlank { null })
+                NewMenuItem(
+                    restaurantId = restaurantId,
+                    categoryId = categoryId,
+                    categoryName = categoryName?.ifBlank { null },
+                    name = name,
+                    description = description.ifBlank { null },
+                    price = price,
+                    portionSizes = portionSizes,
+                    isAvailable = available,
+                    imageUrl = imageUrl?.ifBlank { null }
+                )
             )
         } else {
             db.from("menu_items").update(buildJsonObject {
                 put("category_id", categoryId)
+                put("category_name", categoryName?.ifBlank { null })
                 put("name", name)
                 put("description", description.ifBlank { null })
                 put("price", price)
+                put("portion_sizes", Json.encodeToJsonElement(portionSizes))
                 put("is_available", available)
                 if (imageUrl != null) put("image_url", imageUrl.ifBlank { null })
             }) { filter { eq("id", id) } }

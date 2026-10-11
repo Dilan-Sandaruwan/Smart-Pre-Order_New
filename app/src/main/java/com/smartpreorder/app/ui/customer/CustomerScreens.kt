@@ -773,7 +773,8 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
 private fun MenuItemRow(item: MenuItem, canOrder: Boolean, onAdd: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (!item.imageUrl.isNullOrBlank()) {
+            val dishImage = sanitizeImageUrl(item.imageUrl)
+            if (!dishImage.isNullOrBlank()) {
                 Box(
                     modifier = Modifier
                         .size(64.dp)
@@ -782,7 +783,7 @@ private fun MenuItemRow(item: MenuItem, canOrder: Boolean, onAdd: () -> Unit) {
                     contentAlignment = Alignment.Center
                 ) {
                     AsyncImage(
-                        model = item.imageUrl,
+                        model = dishImage,
                         contentDescription = item.name,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
@@ -795,7 +796,16 @@ private fun MenuItemRow(item: MenuItem, canOrder: Boolean, onAdd: () -> Unit) {
                 if (!item.description.isNullOrBlank()) {
                     Text(item.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
-                Text(money(item.price), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                if (item.portionSizes.isNotEmpty()) {
+                    Text(
+                        item.portionSizes.joinToString(" | ") { "${it.name} - ${money(it.price)}" },
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                } else {
+                    Text(money(item.price), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
             }
             Button(onClick = onAdd, enabled = canOrder && item.isAvailable) {
                 Text(if (item.isAvailable) "Add" else "Sold out")

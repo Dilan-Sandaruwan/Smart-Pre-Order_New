@@ -53,6 +53,12 @@ data class RestaurantStat(
 )
 
 @Serializable
+data class PortionSize(
+    val name: String,
+    val price: Double
+)
+
+@Serializable
 data class Category(val id: String, val name: String)
 
 @Serializable
@@ -60,9 +66,11 @@ data class MenuItem(
     val id: String,
     @SerialName("restaurant_id") val restaurantId: String,
     @SerialName("category_id") val categoryId: String? = null,
+    @SerialName("category_name") val categoryName: String? = null,
     val name: String,
     val description: String? = null,
-    val price: Double,
+    val price: Double = 0.0,
+    @SerialName("portion_sizes") val portionSizes: List<PortionSize> = emptyList(),
     @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("is_available") val isAvailable: Boolean = true,
     val restaurants: NameOnly? = null, // filled only by the food-search query
@@ -154,9 +162,11 @@ data class NewRestaurant(
 data class NewMenuItem(
     @SerialName("restaurant_id") val restaurantId: String,
     @SerialName("category_id") val categoryId: String?,
+    @SerialName("category_name") val categoryName: String? = null,
     val name: String,
     val description: String?,
     val price: Double,
+    @SerialName("portion_sizes") val portionSizes: List<PortionSize> = emptyList(),
     @SerialName("is_available") val isAvailable: Boolean,
     @SerialName("image_url") val imageUrl: String? = null,
 )
