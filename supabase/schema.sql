@@ -73,6 +73,7 @@ create table public.orders (
   note              text,
   estimated_minutes int,
   reject_reason     text,
+  table_no          text,
   customer_name     text,
   customer_phone    text,
   created_at        timestamptz not null default now(),

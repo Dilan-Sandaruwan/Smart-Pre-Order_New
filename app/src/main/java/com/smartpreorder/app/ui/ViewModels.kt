@@ -460,8 +460,8 @@ class RestaurantViewModel : BaseVm() {
         }
     }
 
-    fun setStatus(order: Order, status: String, minutes: Int? = null, reason: String? = null) = launchSafe {
-        Repo.setOrderStatus(order.id, status, minutes, reason)
+    fun setStatus(order: Order, status: String, minutes: Int? = null, reason: String? = null, tableNo: String? = null) = launchSafe {
+        Repo.setOrderStatus(order.id, status, minutes, reason, tableNo)
         restaurant?.let { loadOrders(it.id, false) }
     }
 

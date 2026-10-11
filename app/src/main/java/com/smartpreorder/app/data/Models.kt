@@ -96,6 +96,7 @@ data class Order(
     val note: String? = null,
     @SerialName("estimated_minutes") val estimatedMinutes: Int? = null,
     @SerialName("reject_reason") val rejectReason: String? = null,
+    @SerialName("table_no") val tableNo: String? = null,
     @SerialName("customer_name") val customerName: String? = null,
     @SerialName("customer_phone") val customerPhone: String? = null,
     @SerialName("created_at") val createdAt: String? = null,

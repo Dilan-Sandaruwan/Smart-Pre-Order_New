@@ -212,6 +212,7 @@ fun RestaurantApprovalBanner(r: Restaurant?) {
 private fun OrderQueueTab(vm: RestaurantViewModel) {
     var etaTarget by remember { mutableStateOf<Order?>(null) }   // accept (pending) or change ETA
     var rejectTarget by remember { mutableStateOf<Order?>(null) }
+    var tableNoTarget by remember { mutableStateOf<Order?>(null) }
     val active = vm.activeOrders
 
     LazyColumn(
@@ -236,6 +237,13 @@ private fun OrderQueueTab(vm: RestaurantViewModel) {
                 onAccept = { etaTarget = o },
                 onReject = { rejectTarget = o },
                 onChangeEta = { etaTarget = o },
+                onMarkReady = {
+                    if (o.orderType == "dine_in") {
+                        tableNoTarget = o
+                    } else {
+                        vm.setStatus(o, "ready")
+                    }
+                },
                 onStatus = { s -> vm.setStatus(o, s) }
             )
         }
@@ -270,6 +278,57 @@ private fun OrderQueueTab(vm: RestaurantViewModel) {
             dismissButton = { TextButton(onClick = { rejectTarget = null }) { Text("Back") } }
         )
     }
+    tableNoTarget?.let { o ->
+        TableNoDialog(
+            order = o,
+            onConfirm = { tableNo ->
+                vm.setStatus(o, "ready", tableNo = tableNo)
+                tableNoTarget = null
+            },
+            onDismiss = { tableNoTarget = null }
+        )
+    }
+}
+
+@Composable
+private fun TableNoDialog(
+    order: Order,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var tableInput by remember { mutableStateOf(order.tableNo.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Dine-in Order ${shortId(order.id)}") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Enter the Table Number where the customer should be seated.")
+                OutlinedTextField(
+                    value = tableInput,
+                    onValueChange = { tableInput = it },
+                    label = { Text("Table No. (e.g. Table 05) *") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (tableInput.isNotBlank()) {
+                        onConfirm(tableInput.trim())
+                    }
+                },
+                enabled = tableInput.isNotBlank()
+            ) {
+                Text("Mark Ready & Notify")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }
 
 @Composable
@@ -278,6 +337,7 @@ private fun QueueCard(
     onAccept: () -> Unit,
     onReject: () -> Unit,
     onChangeEta: () -> Unit,
+    onMarkReady: () -> Unit,
     onStatus: (String) -> Unit,
 ) {
     Card(Modifier.fillMaxWidth()) {
@@ -291,6 +351,9 @@ private fun QueueCard(
             Text("${o.customerName ?: "Customer"}  •  ${formatTime(o.createdAt)}", style = MaterialTheme.typography.bodySmall)
             if (!o.customerPhone.isNullOrBlank()) {
                 Text(o.customerPhone, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+            }
+            if (!o.tableNo.isNullOrBlank()) {
+                Text("Table No: ${o.tableNo}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
             HorizontalDivider()
             o.items.forEach { Text("${it.quantity}× ${it.itemName}") }
@@ -314,7 +377,7 @@ private fun QueueCard(
                     }
                     "preparing" -> {
                         OutlinedButton(onClick = onChangeEta, modifier = Modifier.weight(1f)) { Text("Change ETA") }
-                        Button(onClick = { onStatus("ready") }, modifier = Modifier.weight(1f)) { Text("Mark ready") }
+                        Button(onClick = onMarkReady, modifier = Modifier.weight(1f)) { Text("Mark ready") }
                     }
                     "ready" -> Button(onClick = { onStatus("completed") }, modifier = Modifier.fillMaxWidth()) { Text("Mark completed") }
                 }

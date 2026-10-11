@@ -30,6 +30,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -1151,6 +1152,9 @@ private fun OrdersTab(vm: CustomerViewModel, nav: NavHostController) {
                         StatusChip(o.status)
                     }
                     Text(o.restaurants?.name ?: "Restaurant", style = MaterialTheme.typography.bodyMedium)
+                    if (!o.tableNo.isNullOrBlank()) {
+                        Text("Table No: ${o.tableNo}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(money(o.total), fontWeight = FontWeight.Bold)
                         Text(formatTime(o.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
@@ -1192,6 +1196,41 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                if (o.orderType == "dine_in" && !o.tableNo.isNullOrBlank()) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Text("🍽️", style = MaterialTheme.typography.headlineMedium)
+                                Column {
+                                    Text(
+                                        if (o.status == "ready" || o.status == "completed")
+                                            "Your order is ready!"
+                                        else
+                                            "Dine-in Table Assigned",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    Text(
+                                        "Please be seated at Table No: ${o.tableNo}",
+                                        fontWeight = FontWeight.ExtraBold,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

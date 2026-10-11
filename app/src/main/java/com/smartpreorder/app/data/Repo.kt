@@ -226,11 +226,12 @@ object Repo {
             limit(200)
         }.decodeList()
 
-    suspend fun setOrderStatus(orderId: String, status: String, minutes: Int? = null, reason: String? = null) {
+    suspend fun setOrderStatus(orderId: String, status: String, minutes: Int? = null, reason: String? = null, tableNo: String? = null) {
         db.from("orders").update(buildJsonObject {
             put("status", status)
             if (minutes != null) put("estimated_minutes", minutes)
             if (reason != null) put("reject_reason", reason)
+            if (tableNo != null) put("table_no", tableNo)
         }) { filter { eq("id", orderId) } }
     }
 
