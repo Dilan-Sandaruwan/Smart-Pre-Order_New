@@ -70,11 +70,12 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.9.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    // Supabase (Auth + Postgres + Realtime)
+    // Supabase (Auth + Postgres + Realtime + Storage)
     implementation(platform("io.github.jan-tennert.supabase:bom:3.4.1"))
     implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:realtime-kt")
+    implementation("io.github.jan-tennert.supabase:storage-kt")
     // Keep the Ktor version in line with supabase-kt (see its README if Gradle reports a mismatch)
     implementation("io.ktor:ktor-client-okhttp:3.3.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")

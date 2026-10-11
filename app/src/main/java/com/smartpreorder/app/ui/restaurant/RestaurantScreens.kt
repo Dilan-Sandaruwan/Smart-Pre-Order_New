@@ -54,8 +54,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
-import com.smartpreorder.app.ui.saveImageLocally
+import com.smartpreorder.app.ui.friendly
+import com.smartpreorder.app.ui.uploadImageToSupabase
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -372,7 +376,21 @@ private fun MenuTab(vm: RestaurantViewModel) {
                 item { Section(cat) }
                 items(list, key = { it.id }) { m ->
                     Card(Modifier.fillMaxWidth()) {
-                        Row(Modifier.padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (!m.imageUrl.isNullOrBlank()) {
+                                Box(
+                                    Modifier.size(52.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    AsyncImage(
+                                        model = m.imageUrl,
+                                        contentDescription = m.name,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                                Spacer(Modifier.width(10.dp))
+                            }
                             Column(Modifier.weight(1f)) {
                                 Text(m.name, fontWeight = FontWeight.SemiBold)
                                 Text(money(m.price), color = MaterialTheme.colorScheme.primary)
@@ -408,19 +426,56 @@ private fun MenuTab(vm: RestaurantViewModel) {
 
 @Composable
 private fun MenuItemDialog(vm: RestaurantViewModel, item: MenuItem?, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
     var name by remember { mutableStateOf(item?.name.orEmpty()) }
     var desc by remember { mutableStateOf(item?.description.orEmpty()) }
     var price by remember { mutableStateOf(item?.price?.toString().orEmpty()) }
+    var imageUrl by remember { mutableStateOf(item?.imageUrl.orEmpty()) }
+    var isUploadingDish by remember { mutableStateOf(false) }
     var categoryId by remember { mutableStateOf(item?.categoryId) }
     var available by remember { mutableStateOf(item?.isAvailable ?: true) }
     var menuOpen by remember { mutableStateOf(false) }
     var problem by remember { mutableStateOf<String?>(null) }
+
+    val dishPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            isUploadingDish = true
+            scope.launch {
+                try {
+                    imageUrl = uploadImageToSupabase(context, it, "dishes")
+                } catch (e: Exception) {
+                    problem = "Upload failed: ${e.friendly()}"
+                } finally {
+                    isUploadingDish = false
+                }
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (item == null) "Add item" else "Edit item") },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(
+                        Modifier.size(72.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isUploadingDish) {
+                            CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                        } else if (imageUrl.isNotBlank()) {
+                            AsyncImage(model = imageUrl, contentDescription = "Dish photo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        } else {
+                            Icon(Ic.Menu, null, tint = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                    TextButton(onClick = { dishPicker.launch("image/*") }, enabled = !isUploadingDish) {
+                        Text(if (isUploadingDish) "Uploading..." else if (imageUrl.isBlank()) "Add Photo" else "Change Photo")
+                    }
+                }
                 OutlinedTextField(name, { name = it }, label = { Text("Name *") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(price, { price = it }, label = { Text("Price (Rs.) *") }, singleLine = true,
@@ -450,7 +505,7 @@ private fun MenuItemDialog(vm: RestaurantViewModel, item: MenuItem?, onDismiss: 
                     name.isBlank() -> problem = "Enter a name"
                     p == null || p < 0 -> problem = "Enter a valid price"
                     else -> {
-                        vm.saveItem(item?.id, categoryId, name, desc, p, available)
+                        vm.saveItem(item?.id, categoryId, name, desc, p, available, imageUrl)
                         onDismiss()
                     }
                 }
@@ -512,6 +567,7 @@ private fun SalesTab(vm: RestaurantViewModel) {
 private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
     val r = vm.restaurant ?: return
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var name by remember(r.id) { mutableStateOf(r.name) }
     var desc by remember(r.id) { mutableStateOf(r.description.orEmpty()) }
@@ -519,6 +575,8 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
     var phone by remember(r.id) { mutableStateOf(r.phone.orEmpty()) }
     var imageUrl by remember(r.id) { mutableStateOf(r.imageUrl.orEmpty()) }
     var coverImageUrl by remember(r.id) { mutableStateOf(r.coverImageUrl.orEmpty()) }
+    var isUploadingLogo by remember { mutableStateOf(false) }
+    var isUploadingCover by remember { mutableStateOf(false) }
 
     var address by remember(r.id) { mutableStateOf(r.address.orEmpty()) }
     var city by remember(r.id) { mutableStateOf(r.city.orEmpty()) }
@@ -532,10 +590,32 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
     var open by remember(r.id) { mutableStateOf(r.isOpen) }
 
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { saveImageLocally(context, it)?.let { path -> imageUrl = path } }
+        uri?.let {
+            isUploadingLogo = true
+            scope.launch {
+                try {
+                    imageUrl = uploadImageToSupabase(context, it, "logos")
+                } catch (e: Exception) {
+                    vm.error = "Upload failed: ${e.friendly()}"
+                } finally {
+                    isUploadingLogo = false
+                }
+            }
+        }
     }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { saveImageLocally(context, it)?.let { path -> coverImageUrl = path } }
+        uri?.let {
+            isUploadingCover = true
+            scope.launch {
+                try {
+                    coverImageUrl = uploadImageToSupabase(context, it, "covers")
+                } catch (e: Exception) {
+                    vm.error = "Upload failed: ${e.friendly()}"
+                } finally {
+                    isUploadingCover = false
+                }
+            }
+        }
     }
 
     Column(
@@ -562,26 +642,34 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
                     Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (imageUrl.isNotBlank()) {
+                    if (isUploadingLogo) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    } else if (imageUrl.isNotBlank()) {
                         AsyncImage(model = imageUrl, contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     } else {
                         Icon(Ic.Store, null, tint = MaterialTheme.colorScheme.outline)
                     }
                 }
-                TextButton(onClick = { logoPicker.launch("image/*") }) { Text(if (imageUrl.isBlank()) "Add Logo" else "Change Logo") }
+                TextButton(onClick = { logoPicker.launch("image/*") }, enabled = !isUploadingLogo) {
+                    Text(if (isUploadingLogo) "Uploading..." else if (imageUrl.isBlank()) "Add Logo" else "Change Logo")
+                }
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (coverImageUrl.isNotBlank()) {
+                    if (isUploadingCover) {
+                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    } else if (coverImageUrl.isNotBlank()) {
                         AsyncImage(model = coverImageUrl, contentDescription = "Cover", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                     } else {
                         Text("Cover Photo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                     }
                 }
-                TextButton(onClick = { coverPicker.launch("image/*") }) { Text(if (coverImageUrl.isBlank()) "Add Cover" else "Change Cover") }
+                TextButton(onClick = { coverPicker.launch("image/*") }, enabled = !isUploadingCover) {
+                    Text(if (isUploadingCover) "Uploading..." else if (coverImageUrl.isBlank()) "Add Cover" else "Change Cover")
+                }
             }
         }
 

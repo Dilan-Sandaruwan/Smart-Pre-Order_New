@@ -242,11 +242,12 @@ object Repo {
 
     suspend fun saveMenuItem(
         id: String?, restaurantId: String, categoryId: String?,
-        name: String, description: String, price: Double, available: Boolean
+        name: String, description: String, price: Double, available: Boolean,
+        imageUrl: String? = null
     ) {
         if (id == null) {
             db.from("menu_items").insert(
-                NewMenuItem(restaurantId, categoryId, name, description.ifBlank { null }, price, available)
+                NewMenuItem(restaurantId, categoryId, name, description.ifBlank { null }, price, available, imageUrl?.ifBlank { null })
             )
         } else {
             db.from("menu_items").update(buildJsonObject {
@@ -255,6 +256,7 @@ object Repo {
                 put("description", description.ifBlank { null })
                 put("price", price)
                 put("is_available", available)
+                if (imageUrl != null) put("image_url", imageUrl.ifBlank { null })
             }) { filter { eq("id", id) } }
         }
     }

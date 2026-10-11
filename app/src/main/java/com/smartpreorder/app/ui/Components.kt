@@ -43,6 +43,38 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+import com.smartpreorder.app.data.supabase
+import io.github.jan.supabase.storage.storage
+import java.util.UUID
+
+const val SUPABASE_STORAGE_BUCKET = "MAD APP images"
+
+suspend fun uploadImageToSupabase(context: Context, uri: Uri, folder: String = "uploads"): String {
+    val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Cannot read selected image")
+    val originalBitmap = BitmapFactory.decodeStream(inputStream) ?: throw Exception("Invalid image file")
+
+    val maxDim = 1024
+    val width = originalBitmap.width
+    val height = originalBitmap.height
+    val scaledBitmap = if (width > maxDim || height > maxDim) {
+        val scale = maxDim.toFloat() / Math.max(width, height)
+        Bitmap.createScaledBitmap(originalBitmap, (width * scale).toInt(), (height * scale).toInt(), true)
+    } else {
+        originalBitmap
+    }
+
+    val outputStream = ByteArrayOutputStream()
+    scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+    val byteArray = outputStream.toByteArray()
+
+    val fileName = "$folder/${UUID.randomUUID()}.jpg"
+    val bucket = supabase.storage.from(SUPABASE_STORAGE_BUCKET)
+
+    bucket.upload(fileName, byteArray)
+
+    return bucket.publicUrl(fileName)
+}
+
 fun saveImageLocally(context: Context, uri: Uri): String? {
     return try {
         val inputStream = context.contentResolver.openInputStream(uri) ?: return null

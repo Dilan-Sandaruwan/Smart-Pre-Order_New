@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -23,10 +22,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -34,7 +31,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -74,7 +70,6 @@ import androidx.navigation.compose.rememberNavController
 import com.smartpreorder.app.data.MenuItem
 import com.smartpreorder.app.data.Order
 import com.smartpreorder.app.data.Profile
-import com.smartpreorder.app.data.Repo
 import com.smartpreorder.app.data.Restaurant
 import com.smartpreorder.app.data.RestaurantStat
 import com.smartpreorder.app.data.Review
@@ -143,7 +138,8 @@ private fun CustomerTabs(vm: CustomerViewModel, auth: AuthViewModel, nav: NavHos
     }
 }
 
-// =====================================================================
+
+
 // =====================================================================
 //  Tab 1: restaurants + food search
 // =====================================================================
@@ -227,7 +223,6 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        // 1. Top Header & Search Bar
         item {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(
@@ -270,7 +265,6 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
             }
         }
 
-        // 2. Offers Banner Carousel
         item {
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -328,7 +322,6 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
             }
         }
 
-        // 3. Popular Categories Section
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
@@ -384,12 +377,28 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
             }
         }
 
-        // 4. Dish Search Results (if searching)
         if (vm.dishResults.isNotEmpty()) {
             item { Section("Dishes") }
             items(vm.dishResults, key = { "dish-" + it.id }) { d ->
                 Card(onClick = { nav.navigate("restaurant/${d.restaurantId}") }, modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (!d.imageUrl.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = d.imageUrl,
+                                    contentDescription = d.name,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            Spacer(Modifier.width(12.dp))
+                        }
                         Column(Modifier.weight(1f)) {
                             Text(d.name, fontWeight = FontWeight.SemiBold)
                             Text(d.restaurants?.name ?: "", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
@@ -400,7 +409,6 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
             }
         }
 
-        // 5. Restaurants List
         item {
             Text(
                 if (selectedCategory != null) "Restaurants for '$selectedCategory'" else "Restaurants",
@@ -432,7 +440,6 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                     .fillMaxWidth()
                     .height(130.dp)
             ) {
-                // Cover photo
                 if (!r.coverImageUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = r.coverImageUrl,
@@ -458,7 +465,6 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                     }
                 }
 
-                // Open/Closed Badge
                 Surface(
                     color = if (r.isOpen) Color(0xFFD4F4DD) else Color(0xFFFFD6D6),
                     shape = RoundedCornerShape(50),
@@ -473,7 +479,6 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                     )
                 }
 
-                // Profile Picture / Logo Avatar
                 Surface(
                     shape = CircleShape,
                     color = MaterialTheme.colorScheme.surface,
@@ -693,333 +698,371 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
 
                     if (!canOrder) {
                         Surface(color = MaterialTheme.colorScheme.errorContainer, shape = MaterialTheme.shapes.medium) {
-                            Text("This restaurant is currently closed for new orders.",
-                                modifier = Modifier.padding(12.dp).fillMaxWidth())
+                            Text(
+                                "This restaurant is currently closed for new orders.",
+                                modifier = Modifier.padding(12.dp).fillMaxWidth()
+                            )
                         }
                     }
                 }
             }
+
             if (cats.isNotEmpty()) {
                 item {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        item { FilterChip(selected = selectedCat == null, onClick = { selectedCat = null }, label = { Text("All") }) }
+                        item {
+                            FilterChip(
+                                selected = selectedCat == null,
+                                onClick = { selectedCat = null },
+                                label = { Text("All") }
+                            )
+                        }
                         items(cats, key = { it.id }) { c ->
-                            FilterChip(selected = selectedCat == c.id, onClick = { selectedCat = c.id }, label = { Text(c.name) })
+                            FilterChip(
+                                selected = selectedCat == c.id,
+                                onClick = { selectedCat = c.id },
+                                label = { Text(c.name) }
+                            )
                         }
                     }
                 }
             }
-            if (vm.menuLoading) item { Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
-            else if (shown.isEmpty()) item { EmptyState("No items on the menu yet") }
-            items(shown, key = { it.id }) { item -> MenuItemRow(vm, item, canOrder) }
 
-            if (vm.reviews.isNotEmpty()) {
-                item { Section("Reviews") }
-                items(vm.reviews, key = { "rev-" + it.id }) { rv -> ReviewRow(rv) }
+            items(shown, key = { it.id }) { item ->
+                MenuItemRow(item, canOrder) {
+                    vm.add(item)
+                }
             }
         }
-    }
 
-    if (showReport) {
-        AlertDialog(
-            onDismissRequest = { showReport = false },
-            title = { Text("Report this restaurant") },
-            text = {
-                OutlinedTextField(reportText, { reportText = it }, label = { Text("What's the problem?") },
-                    modifier = Modifier.fillMaxWidth())
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (reportText.isNotBlank()) vm.report(id, reportText)
-                    reportText = ""; showReport = false
-                }) { Text("Send") }
-            },
-            dismissButton = { TextButton(onClick = { showReport = false }) { Text("Cancel") } }
-        )
+        if (showReport) {
+            AlertDialog(
+                onDismissRequest = { showReport = false },
+                title = { Text("Report Restaurant") },
+                text = {
+                    OutlinedTextField(
+                        value = reportText,
+                        onValueChange = { reportText = it },
+                        placeholder = { Text("Reason...") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                },
+                confirmButton = {
+                    Button(onClick = {
+                        vm.report(id, reportText)
+                        showReport = false
+                        reportText = ""
+                    }) { Text("Submit") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showReport = false }) { Text("Cancel") }
+                }
+            )
+        }
     }
 }
 
 @Composable
-private fun MenuItemRow(vm: CustomerViewModel, item: MenuItem, canOrder: Boolean) {
-    val qty = vm.qty(item.id)
-    Card(Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+private fun MenuItemRow(item: MenuItem, canOrder: Boolean, onAdd: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!item.imageUrl.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = item.imageUrl,
+                        contentDescription = item.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(item.name, fontWeight = FontWeight.SemiBold)
                 if (!item.description.isNullOrBlank()) {
                     Text(item.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                 }
                 Text(money(item.price), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
             }
-            when {
-                !item.isAvailable -> SmallTag("Sold out")
-                !canOrder -> {}
-                qty == 0 -> FilledTonalIconButton(onClick = { vm.add(item) }) { Icon(Ic.Add, "Add") }
-                else -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { vm.remove(item) }) { Icon(Ic.Remove, "Less") }
-                    Text("$qty", fontWeight = FontWeight.Bold)
-                    IconButton(onClick = { vm.add(item) }) { Icon(Ic.Add, "More") }
-                }
+            Button(onClick = onAdd, enabled = canOrder && item.isAvailable) {
+                Text(if (item.isAvailable) "Add" else "Sold out")
             }
         }
     }
 }
 
-@Composable
-private fun ReviewRow(rv: Review) {
-    Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RatingBar(rv.rating)
-            Text("  " + (rv.customerName ?: "Customer"), style = MaterialTheme.typography.labelMedium)
-        }
-        if (!rv.comment.isNullOrBlank()) Text(rv.comment, style = MaterialTheme.typography.bodyMedium)
-        HorizontalDivider(Modifier.padding(top = 8.dp))
-    }
-}
-
 // =====================================================================
-//  Cart + checkout
+//  Cart Screen
 // =====================================================================
 @Composable
 private fun CartScreen(vm: CustomerViewModel, nav: NavHostController) {
     val snack = remember { SnackbarHostState() }
     Notices(vm, snack)
-    val restaurantName = vm.restaurants.firstOrNull { it.id == vm.cartRestaurantId }?.name
+    var orderType by remember { mutableStateOf("pickup") }
+    var note by remember { mutableStateOf("") }
+    var confirmOrder by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Your cart") },
+                title = { Text("My Cart") },
                 navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Ic.Back, "Back") } }
             )
         },
-        snackbarHost = { SnackbarHost(snack) }
+        snackbarHost = { SnackbarHost(snack) },
+        bottomBar = {
+            if (vm.cart.isNotEmpty()) {
+                Surface(tonalElevation = 3.dp) {
+                    Button(
+                        onClick = { confirmOrder = true },
+                        modifier = Modifier.fillMaxWidth().padding(12.dp)
+                    ) {
+                        Text("Place Pre-Order  •  ${money(vm.cartTotal)}")
+                    }
+                }
+            }
+        }
     ) { pad ->
         if (vm.cart.isEmpty()) {
             Box(Modifier.padding(pad).fillMaxSize(), contentAlignment = Alignment.Center) {
-                EmptyState("Your cart is empty.\nPick something tasty from a menu!")
+                EmptyState("Your cart is empty")
             }
         } else {
-            Column(
-                Modifier.padding(pad).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
+            LazyColumn(
+                Modifier.padding(pad).fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (restaurantName != null) Text("From $restaurantName", style = MaterialTheme.typography.titleMedium)
-                vm.cart.toList().forEach { line ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(line.item.name, fontWeight = FontWeight.SemiBold)
-                            Text(money(line.item.price), style = MaterialTheme.typography.bodySmall)
+                items(vm.cart) { ci ->
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(ci.item.name, fontWeight = FontWeight.Bold)
+                                Text(money(ci.item.price), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(onClick = { vm.remove(ci.item) }) {
+                                    Text("-", fontWeight = FontWeight.Bold)
+                                }
+                                Text("${ci.qty}", fontWeight = FontWeight.Bold)
+                                IconButton(onClick = { vm.add(ci.item) }) {
+                                    Text("+", fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
-                        IconButton(onClick = { vm.remove(line.item) }) { Icon(Ic.Remove, "Less") }
-                        Text("${line.qty}", fontWeight = FontWeight.Bold)
-                        IconButton(onClick = { vm.add(line.item) }) { Icon(Ic.Add, "More") }
-                        Text(money(line.item.price * line.qty), modifier = Modifier.padding(start = 8.dp))
                     }
                 }
-                HorizontalDivider()
-                Section("How will you eat?")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = vm.orderType == "pickup", onClick = { vm.orderType = "pickup" },
-                        label = { Text("Pickup") })
-                    FilterChip(selected = vm.orderType == "dine_in", onClick = { vm.orderType = "dine_in" },
-                        label = { Text("Dine-in") })
-                }
-                OutlinedTextField(vm.note, { vm.note = it }, label = { Text("Note for the kitchen (optional)") },
-                    modifier = Modifier.fillMaxWidth())
-                HorizontalDivider()
-                Row {
-                    Text("Total", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                    Text(money(vm.cartTotal), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                }
-                Button(
-                    onClick = {
-                        vm.placeOrder { id ->
-                            nav.navigate("order/$id") { popUpTo("tabs") }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Order Type", fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = orderType == "pickup", onClick = { orderType = "pickup" }, label = { Text("Pickup") })
+                            FilterChip(selected = orderType == "dine_in", onClick = { orderType = "dine_in" }, label = { Text("Dine-in") })
                         }
-                    },
-                    enabled = !vm.busy,
-                    modifier = Modifier.fillMaxWidth()
-                ) { Text(if (vm.busy) "Placing order..." else "Place order") }
-                Text("Pay at the restaurant. The restaurant will confirm your order and give an estimated time.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            placeholder = { Text("Add a note (e.g. allergies, extra spicy)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
+        }
+
+        if (confirmOrder) {
+            ConfirmDialog(
+                title = "Confirm Order",
+                text = "Are you sure you want to place this order for ${money(vm.cartTotal)}?",
+                onConfirm = {
+                    confirmOrder = false
+                    vm.orderType = orderType
+                    vm.note = note
+                    vm.placeOrder { orderId ->
+                        nav.popBackStack()
+                        nav.navigate("order/$orderId")
+                    }
+                },
+                onDismiss = { confirmOrder = false }
+            )
         }
     }
 }
 
 // =====================================================================
-//  Tab 2: orders + tracking
+//  Orders Tab
 // =====================================================================
 @Composable
 private fun OrdersTab(vm: CustomerViewModel, nav: NavHostController) {
-    val active = vm.orders.filter { it.status in ACTIVE_STATUSES }
-    val past = vm.orders.filter { it.status !in ACTIVE_STATUSES }
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("My orders", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f))
-                IconButton(onClick = { vm.refreshOrders() }) { Icon(Ic.Refresh, "Refresh") }
-            }
-        }
-        if (vm.orders.isEmpty()) item { EmptyState("No orders yet.") }
-        if (active.isNotEmpty()) {
-            item { Section("Active") }
-            items(active, key = { it.id }) { CustomerOrderCard(it) { nav.navigate("order/${it.id}") } }
-        }
-        if (past.isNotEmpty()) {
-            item { Section("History") }
-            items(past, key = { it.id }) { CustomerOrderCard(it) { nav.navigate("order/${it.id}") } }
-        }
-    }
-}
+        item { Text("My Orders", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
 
-@Composable
-private fun CustomerOrderCard(o: Order, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(o.restaurants?.name ?: "Restaurant", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                StatusChip(o.status)
-            }
-            Text(o.items.joinToString { "${it.quantity}× ${it.itemName}" }, style = MaterialTheme.typography.bodyMedium)
-            Row {
-                Text("${shortId(o.id)} • ${orderTypeLabel(o.orderType)} • ${formatTime(o.createdAt)}",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.weight(1f))
-                Text(money(o.total), fontWeight = FontWeight.Bold)
+        if (vm.orders.isEmpty()) {
+            item { EmptyState("No orders yet") }
+        }
+
+        items(vm.orders, key = { it.id }) { o ->
+            Card(
+                onClick = { nav.navigate("order/${o.id}") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Order #${shortId(o.id)}", fontWeight = FontWeight.Bold)
+                        StatusChip(o.status)
+                    }
+                    Text(o.restaurants?.name ?: "Restaurant", style = MaterialTheme.typography.bodyMedium)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(money(o.total), fontWeight = FontWeight.Bold)
+                        Text(formatTime(o.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
             }
         }
     }
 }
 
+// =====================================================================
+//  Order Detail Screen
+// =====================================================================
 @Composable
 private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: String, nav: NavHostController) {
-    val order = vm.orders.firstOrNull { it.id == id }
+    val o = vm.orders.firstOrNull { it.id == id }
     val snack = remember { SnackbarHostState() }
     Notices(vm, snack)
-    var confirmCancel by remember { mutableStateOf(false) }
-    var myReview by remember { mutableStateOf<Review?>(null) }
+    var showReview by remember { mutableStateOf(false) }
     var rating by remember { mutableIntStateOf(5) }
     var comment by remember { mutableStateOf("") }
-
-    LaunchedEffect(order?.status) {
-        val o = order
-        if (o != null && o.status == "completed") myReview = vm.reviewFor(o.id)
-    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (order != null) "Order ${shortId(order.id)}" else "Order") },
+                title = { Text("Order Details") },
                 navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Ic.Back, "Back") } }
             )
         },
         snackbarHost = { SnackbarHost(snack) }
     ) { pad ->
-        if (order == null) {
-            Box(Modifier.padding(pad).fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            return@Scaffold
-        }
-        Column(
-            Modifier.padding(pad).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(order.restaurants?.name ?: "Restaurant", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                StatusChip(order.status)
-                SmallTag(orderTypeLabel(order.orderType))
-                Text(formatTime(order.createdAt), style = MaterialTheme.typography.bodySmall)
+        if (o == null) {
+            Box(Modifier.padding(pad).fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Order not found")
+            }
+        } else {
+            LazyColumn(
+                Modifier.padding(pad).fillMaxSize(),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Order #${shortId(o.id)}", fontWeight = FontWeight.Bold)
+                                StatusChip(o.status)
+                            }
+                            Text(o.restaurants?.name ?: "", style = MaterialTheme.typography.titleMedium)
+                            HorizontalDivider()
+                            StatusStepper(o.status)
+                        }
+                    }
+                }
+
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Items", fontWeight = FontWeight.Bold)
+                            o.items.forEach { item ->
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("${item.quantity}x ${item.itemName}")
+                                    Text(money(item.unitPrice * item.quantity))
+                                }
+                            }
+                            HorizontalDivider()
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Total", fontWeight = FontWeight.Bold)
+                                Text(money(o.total), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                if (o.status == "completed" && o.restaurantId != null) {
+                    item {
+                        Button(onClick = { showReview = true }, modifier = Modifier.fillMaxWidth()) {
+                            Text("Write Review")
+                        }
+                    }
+                }
             }
 
-            if (order.status in ACTIVE_STATUSES || order.status == "completed") {
-                StatusStepper(order.status)
-            }
-            when (order.status) {
-                "pending" -> Text("Waiting for the restaurant to accept your order...")
-                "accepted", "preparing" -> Text(
-                    order.estimatedMinutes?.let { "Estimated preparation time: about $it minutes." }
-                        ?: "The restaurant is working on your order."
+            if (showReview) {
+                AlertDialog(
+                    onDismissRequest = { showReview = false },
+                    title = { Text("Rate Restaurant") },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            RatingBar(rating) { rating = it }
+                            OutlinedTextField(
+                                value = comment,
+                                onValueChange = { comment = it },
+                                placeholder = { Text("Leave a comment...") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(onClick = {
+                            vm.submitReview(
+                                order = o,
+                                customerName = auth.profile?.fullName.orEmpty().ifEmpty { "Customer" },
+                                rating = rating,
+                                comment = comment
+                            ) {
+                                showReview = false
+                            }
+                        }) { Text("Submit") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showReview = false }) { Text("Cancel") }
+                    }
                 )
-                "ready" -> Text("Your food is ready! Please come to the restaurant.", fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.secondary)
-                "rejected" -> Text("The restaurant could not accept this order." +
-                    (order.rejectReason?.let { "\nReason: $it" } ?: ""), color = MaterialTheme.colorScheme.error)
-                "cancelled" -> Text("You cancelled this order.")
-            }
-
-            HorizontalDivider()
-            order.items.forEach { it2 ->
-                Row {
-                    Text("${it2.quantity}× ${it2.itemName}", modifier = Modifier.weight(1f))
-                    Text(money(it2.unitPrice * it2.quantity))
-                }
-            }
-            HorizontalDivider()
-            Row {
-                Text("Total", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(money(order.total), fontWeight = FontWeight.Bold)
-            }
-            if (!order.note.isNullOrBlank()) Text("Note: ${order.note}", color = MaterialTheme.colorScheme.outline)
-
-            if (order.status == "pending") {
-                OutlinedButton(onClick = { confirmCancel = true }, modifier = Modifier.fillMaxWidth()) { Text("Cancel order") }
-            }
-
-            if (order.status == "completed") {
-                HorizontalDivider()
-                if (myReview != null) {
-                    Section("Your review")
-                    RatingBar(myReview!!.rating)
-                    if (!myReview!!.comment.isNullOrBlank()) Text(myReview!!.comment!!)
-                } else {
-                    Section("How was your meal?")
-                    RatingBar(rating) { rating = it }
-                    OutlinedTextField(comment, { comment = it }, label = { Text("Comment (optional)") },
-                        modifier = Modifier.fillMaxWidth())
-                    Button(
-                        onClick = {
-                            vm.submitReview(order, auth.profile?.fullName ?: "Customer", rating, comment) { myReview = it }
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("Submit review") }
-                }
             }
         }
-    }
-
-    if (confirmCancel && order != null) {
-        ConfirmDialog("Cancel order?", "The restaurant hasn't accepted it yet, so you can cancel it for free.",
-            "Cancel order", onConfirm = { vm.cancel(order.id) }, onDismiss = { confirmCancel = false })
     }
 }
 
 // =====================================================================
-//  Tab 3: profile
+//  Customer Profile Tab
 // =====================================================================
 @Composable
 private fun CustomerProfileTab(vm: CustomerViewModel, auth: AuthViewModel) {
-    val p = auth.profile
-    var name by remember(p?.id) { mutableStateOf(p?.fullName.orEmpty()) }
-    var phone by remember(p?.id) { mutableStateOf(p?.phone.orEmpty()) }
     Column(
-        Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("My profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(Repo.email(), color = MaterialTheme.colorScheme.outline)
-        OutlinedTextField(name, { name = it }, label = { Text("Full name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { auth.updateProfile(name, phone) }, modifier = Modifier.fillMaxWidth()) { Text("Save") }
-        OutlinedButton(onClick = { auth.logout() }, modifier = Modifier.fillMaxWidth()) {
-            Icon(Ic.Logout, null)
-            Spacer(Modifier.padding(horizontal = 4.dp))
-            Text("Log out")
+        Text("Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Name: ${auth.profile?.fullName.orEmpty()}", fontWeight = FontWeight.SemiBold)
+                Text("Phone: ${auth.profile?.phone.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
+                Text("Role: ${auth.profile?.role.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Button(onClick = { auth.logout() }, modifier = Modifier.fillMaxWidth()) {
+            Text("Sign Out")
         }
     }
 }

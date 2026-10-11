@@ -158,6 +158,7 @@ data class NewMenuItem(
     val description: String?,
     val price: Double,
     @SerialName("is_available") val isAvailable: Boolean,
+    @SerialName("image_url") val imageUrl: String? = null,
 )
 
 @Serializable

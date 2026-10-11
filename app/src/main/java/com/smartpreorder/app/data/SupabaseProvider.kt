@@ -9,6 +9,7 @@ import io.github.jan.supabase.realtime.Realtime
 import io.github.jan.supabase.serializer.KotlinXSerializer
 import kotlinx.serialization.json.Json
 
+import io.github.jan.supabase.storage.Storage
 import kotlin.time.Duration.Companion.seconds
 
 /** One shared Supabase client for the whole app. Keys come from local.properties. */
@@ -20,5 +21,6 @@ val supabase: SupabaseClient = createSupabaseClient(
     install(Auth)
     install(Postgrest)
     install(Realtime)
+    install(Storage)
     defaultSerializer = KotlinXSerializer(Json { ignoreUnknownKeys = true })
 }

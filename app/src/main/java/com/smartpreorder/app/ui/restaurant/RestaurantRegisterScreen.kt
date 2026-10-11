@@ -45,18 +45,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import com.smartpreorder.app.data.Repo
 import com.smartpreorder.app.ui.AuthViewModel
 import com.smartpreorder.app.ui.Ic
 import com.smartpreorder.app.ui.Notices
 import com.smartpreorder.app.ui.RestaurantViewModel
 import com.smartpreorder.app.ui.Section
-import com.smartpreorder.app.ui.saveImageLocally
+import com.smartpreorder.app.ui.friendly
+import com.smartpreorder.app.ui.uploadImageToSupabase
 
 /** Registration / initial setup screen for a new restaurant owner. */
 @Composable
 fun RestaurantRegisterScreen(vm: RestaurantViewModel, auth: AuthViewModel) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var name by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
@@ -64,6 +69,8 @@ fun RestaurantRegisterScreen(vm: RestaurantViewModel, auth: AuthViewModel) {
     var phone by remember { mutableStateOf("") }
     var imageUrl by remember { mutableStateOf("") }
     var coverImageUrl by remember { mutableStateOf("") }
+    var isUploadingLogo by remember { mutableStateOf(false) }
+    var isUploadingCover by remember { mutableStateOf(false) }
 
     var city by remember { mutableStateOf("") }
     var district by remember { mutableStateOf("") }
@@ -76,10 +83,32 @@ fun RestaurantRegisterScreen(vm: RestaurantViewModel, auth: AuthViewModel) {
     var deliveryRadius by remember { mutableStateOf("") }
 
     val logoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { saveImageLocally(context, it)?.let { path -> imageUrl = path } }
+        uri?.let {
+            isUploadingLogo = true
+            scope.launch {
+                try {
+                    imageUrl = uploadImageToSupabase(context, it, "logos")
+                } catch (e: Exception) {
+                    vm.error = "Upload failed: ${e.friendly()}"
+                } finally {
+                    isUploadingLogo = false
+                }
+            }
+        }
     }
     val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let { saveImageLocally(context, it)?.let { path -> coverImageUrl = path } }
+        uri?.let {
+            isUploadingCover = true
+            scope.launch {
+                try {
+                    coverImageUrl = uploadImageToSupabase(context, it, "covers")
+                } catch (e: Exception) {
+                    vm.error = "Upload failed: ${e.friendly()}"
+                } finally {
+                    isUploadingCover = false
+                }
+            }
+        }
     }
 
     val snack = remember { SnackbarHostState() }
@@ -100,26 +129,34 @@ fun RestaurantRegisterScreen(vm: RestaurantViewModel, auth: AuthViewModel) {
                         Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (imageUrl.isNotBlank()) {
+                        if (isUploadingLogo) {
+                            CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                        } else if (imageUrl.isNotBlank()) {
                             AsyncImage(model = imageUrl, contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         } else {
                             Icon(Ic.Store, null, tint = MaterialTheme.colorScheme.outline)
                         }
                     }
-                    TextButton(onClick = { logoPicker.launch("image/*") }) { Text(if (imageUrl.isBlank()) "Add Logo" else "Change Logo") }
+                    TextButton(onClick = { logoPicker.launch("image/*") }, enabled = !isUploadingLogo) {
+                        Text(if (isUploadingLogo) "Uploading..." else if (imageUrl.isBlank()) "Add Logo" else "Change Logo")
+                    }
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
                         Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (coverImageUrl.isNotBlank()) {
+                        if (isUploadingCover) {
+                            CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                        } else if (coverImageUrl.isNotBlank()) {
                             AsyncImage(model = coverImageUrl, contentDescription = "Cover", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         } else {
                             Text("Cover Photo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         }
                     }
-                    TextButton(onClick = { coverPicker.launch("image/*") }) { Text(if (coverImageUrl.isBlank()) "Add Cover" else "Change Cover") }
+                    TextButton(onClick = { coverPicker.launch("image/*") }, enabled = !isUploadingCover) {
+                        Text(if (isUploadingCover) "Uploading..." else if (coverImageUrl.isBlank()) "Add Cover" else "Change Cover")
+                    }
                 }
             }
 
