@@ -122,7 +122,15 @@ class AuthViewModel : BaseVm() {
 // =====================================================================
 //  CUSTOMER
 // =====================================================================
-data class CartLine(val item: MenuItem, val qty: Int)
+data class CartLine(
+    val item: MenuItem,
+    val selectedPortion: PortionSize? = null,
+    val qty: Int = 1
+) {
+    val unitPrice: Double get() = selectedPortion?.price ?: item.price
+    val displayName: String get() = if (selectedPortion != null) "${item.name} (${selectedPortion.name})" else item.name
+    val lineTotal: Double get() = unitPrice * qty
+}
 
 class CustomerViewModel : BaseVm() {
     var restaurants by mutableStateOf<List<Restaurant>>(emptyList())
@@ -147,7 +155,7 @@ class CustomerViewModel : BaseVm() {
     private var lastStatus: Map<String, String>? = null
 
     val cartCount get() = cart.sumOf { it.qty }
-    val cartTotal get() = cart.sumOf { it.item.price * it.qty }
+    val cartTotal get() = cart.sumOf { it.lineTotal }
     val activeOrderCount get() = orders.count { it.status in ACTIVE_STATUSES }
 
     /** Called from a LaunchedEffect: loads data, then listens for realtime order updates. */
@@ -219,22 +227,33 @@ class CustomerViewModel : BaseVm() {
     }
 
     // ---- cart
-    fun qty(itemId: String) = cart.firstOrNull { it.item.id == itemId }?.qty ?: 0
+    fun qty(itemId: String) = cart.filter { it.item.id == itemId }.sumOf { it.qty }
 
-    fun add(item: MenuItem) {
+    fun addToCart(item: MenuItem, portion: PortionSize? = null, qty: Int = 1) {
         if (cartRestaurantId != null && cartRestaurantId != item.restaurantId) {
             cart.clear()
             message = "Cart cleared - you can order from one restaurant at a time."
         }
         cartRestaurantId = item.restaurantId
-        val i = cart.indexOfFirst { it.item.id == item.id }
-        if (i >= 0) cart[i] = cart[i].copy(qty = cart[i].qty + 1) else cart.add(CartLine(item, 1))
+        val i = cart.indexOfFirst {
+            it.item.id == item.id && it.selectedPortion?.name == portion?.name
+        }
+        if (i >= 0) {
+            val existing = cart[i]
+            cart[i] = existing.copy(qty = existing.qty + qty)
+        } else {
+            cart.add(CartLine(item, portion, qty))
+        }
     }
 
-    fun remove(item: MenuItem) {
-        val i = cart.indexOfFirst { it.item.id == item.id }
+    fun updateCartQty(line: CartLine, newQty: Int) {
+        val i = cart.indexOf(line)
         if (i < 0) return
-        if (cart[i].qty <= 1) cart.removeAt(i) else cart[i] = cart[i].copy(qty = cart[i].qty - 1)
+        if (newQty <= 0) {
+            cart.removeAt(i)
+        } else {
+            cart[i] = cart[i].copy(qty = newQty)
+        }
         if (cart.isEmpty()) cartRestaurantId = null
     }
 
@@ -243,7 +262,15 @@ class CustomerViewModel : BaseVm() {
         launchSafe {
             busy = true
             try {
-                val id = Repo.placeOrder(rid, orderType, note, cart.map { CartLineDto(it.item.id, it.qty) })
+                val dtoList = cart.map {
+                    CartLineDto(
+                        menuItemId = it.item.id,
+                        quantity = it.qty,
+                        portionName = it.selectedPortion?.name,
+                        unitPrice = it.unitPrice
+                    )
+                }
+                val id = Repo.placeOrder(rid, orderType, note, dtoList)
                 cart.clear()
                 cartRestaurantId = null
                 note = ""

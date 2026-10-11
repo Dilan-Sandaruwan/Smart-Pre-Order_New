@@ -50,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -70,7 +71,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import com.smartpreorder.app.data.MenuItem
+import com.smartpreorder.app.data.PortionSize
 import com.smartpreorder.app.data.Order
 import com.smartpreorder.app.data.Profile
 import com.smartpreorder.app.data.Restaurant
@@ -578,6 +583,7 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
     val snack = remember { SnackbarHostState() }
     Notices(vm, snack)
     var selectedCat by remember { mutableStateOf<String?>(null) }
+    var selectingItem by remember { mutableStateOf<MenuItem?>(null) }
     var showReport by remember { mutableStateOf(false) }
     var reportText by remember { mutableStateOf("") }
     val stat = vm.stats[id]
@@ -737,7 +743,7 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
 
             items(shown, key = { it.id }) { item ->
                 MenuItemRow(item, canOrder) {
-                    vm.add(item)
+                    selectingItem = item
                 }
             }
         }
@@ -763,6 +769,19 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
                 },
                 dismissButton = {
                     TextButton(onClick = { showReport = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        selectingItem?.let { item ->
+            AddToCartBottomSheet(
+                item = item,
+                onDismiss = { selectingItem = null },
+                onAddToCart = { selections ->
+                    selections.forEach { (portion, qty) ->
+                        vm.addToCart(item, portion, qty)
+                    }
+                    selectingItem = null
                 }
             )
         }
@@ -860,15 +879,15 @@ private fun CartScreen(vm: CustomerViewModel, nav: NavHostController) {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text(ci.item.name, fontWeight = FontWeight.Bold)
-                                Text(money(ci.item.price), style = MaterialTheme.typography.bodySmall)
+                                Text(ci.displayName, fontWeight = FontWeight.Bold)
+                                Text(money(ci.unitPrice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(onClick = { vm.remove(ci.item) }) {
+                                IconButton(onClick = { vm.updateCartQty(ci, ci.qty - 1) }) {
                                     Text("-", fontWeight = FontWeight.Bold)
                                 }
                                 Text("${ci.qty}", fontWeight = FontWeight.Bold)
-                                IconButton(onClick = { vm.add(ci.item) }) {
+                                IconButton(onClick = { vm.updateCartQty(ci, ci.qty + 1) }) {
                                     Text("+", fontWeight = FontWeight.Bold)
                                 }
                             }
@@ -1080,6 +1099,233 @@ private fun CustomerProfileTab(vm: CustomerViewModel, auth: AuthViewModel) {
         }
         Button(onClick = { auth.logout() }, modifier = Modifier.fillMaxWidth()) {
             Text("Sign Out")
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddToCartBottomSheet(
+    item: MenuItem,
+    onDismiss: () -> Unit,
+    onAddToCart: (List<Pair<PortionSize?, Int>>) -> Unit
+) {
+    val portionQuantities = remember {
+        mutableStateMapOf<String, Int>().apply {
+            item.portionSizes.forEachIndexed { idx, p ->
+                put(p.name, if (idx == 0) 1 else 0)
+            }
+        }
+    }
+    var baseQuantity by remember { mutableIntStateOf(1) }
+
+    val isPortionMode = item.portionSizes.isNotEmpty()
+
+    val totalPrice = if (isPortionMode) {
+        item.portionSizes.sumOf { p -> (portionQuantities[p.name] ?: 0) * p.price }
+    } else {
+        item.price * baseQuantity
+    }
+
+    val totalCount = if (isPortionMode) {
+        item.portionSizes.sumOf { p -> portionQuantities[p.name] ?: 0 }
+    } else {
+        baseQuantity
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                val dishImage = sanitizeImageUrl(item.imageUrl)
+                if (!dishImage.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = dishImage,
+                            contentDescription = item.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(item.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    if (!item.description.isNullOrBlank()) {
+                        Text(item.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+            }
+
+            HorizontalDivider()
+
+            if (isPortionMode) {
+                Text("Select Portion Sizes & Quantity", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item.portionSizes.forEach { p ->
+                        val qty = portionQuantities[p.name] ?: 0
+                        val isSelected = qty > 0
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f) else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        p.name,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+                                    Text(
+                                        money(p.price),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            if (qty > 0) portionQuantities[p.name] = qty - 1
+                                        },
+                                        enabled = qty > 0,
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (qty > 0) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text("-", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                            }
+                                        }
+                                    }
+
+                                    Text(
+                                        "$qty",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
+                                    )
+
+                                    IconButton(
+                                        onClick = {
+                                            portionQuantities[p.name] = qty + 1
+                                        },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.fillMaxSize()
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text("+", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimary)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Quantity Selection for single price item
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("Quantity", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(money(item.price), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        IconButton(
+                            onClick = { if (baseQuantity > 1) baseQuantity-- },
+                            enabled = baseQuantity > 1
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("-", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                }
+                            }
+                        }
+
+                        Text("$baseQuantity", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+
+                        IconButton(onClick = { baseQuantity++ }) {
+                            Surface(
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("+", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // Add to Cart Button
+            Button(
+                onClick = {
+                    if (isPortionMode) {
+                        val selections = item.portionSizes.mapNotNull { p ->
+                            val q = portionQuantities[p.name] ?: 0
+                            if (q > 0) p to q else null
+                        }
+                        onAddToCart(selections)
+                    } else {
+                        onAddToCart(listOf(null to baseQuantity))
+                    }
+                },
+                enabled = totalCount > 0,
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(
+                    if (totalCount > 0) "Add to Cart  •  ${money(totalPrice)}" else "Select quantity",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
         }
     }
 }

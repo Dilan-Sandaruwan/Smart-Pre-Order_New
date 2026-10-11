@@ -192,6 +192,8 @@ data class NewReport(
 data class CartLineDto(
     @SerialName("menu_item_id") val menuItemId: String,
     val quantity: Int,
+    @SerialName("portion_name") val portionName: String? = null,
+    @SerialName("unit_price") val unitPrice: Double? = null,
 )
 
 @Serializable
