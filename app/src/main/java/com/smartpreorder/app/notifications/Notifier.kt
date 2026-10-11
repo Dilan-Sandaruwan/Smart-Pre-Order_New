@@ -34,7 +34,13 @@ object Notifier {
                 "$place accepted your order.$eta"
             }
             "preparing" -> "$place is preparing your food."
-            "ready" -> "Your order is ready! Please come and collect it."
+            "ready" -> {
+                if (order.orderType == "dine_in" && !order.tableNo.isNullOrBlank()) {
+                    "Your order is ready! Please be seated at Table No. ${order.tableNo}."
+                } else {
+                    "Your order is ready! Please come and collect it."
+                }
+            }
             "completed" -> "Order completed. Enjoy your meal - and don't forget to rate it!"
             "rejected" -> "$place couldn't accept your order." +
                 (order.rejectReason?.let { " Reason: $it" } ?: "")

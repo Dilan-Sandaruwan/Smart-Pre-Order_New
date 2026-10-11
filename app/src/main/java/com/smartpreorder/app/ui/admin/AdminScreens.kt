@@ -2,18 +2,32 @@
 
 package com.smartpreorder.app.ui.admin
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,15 +48,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.smartpreorder.app.data.Profile
+import com.smartpreorder.app.data.Promotion
 import com.smartpreorder.app.ui.AdminViewModel
 import com.smartpreorder.app.ui.AuthViewModel
 import com.smartpreorder.app.ui.EmptyState
@@ -53,9 +75,14 @@ import com.smartpreorder.app.ui.SmallTag
 import com.smartpreorder.app.ui.StatCard
 import com.smartpreorder.app.ui.StatusChip
 import com.smartpreorder.app.ui.formatTime
+import com.smartpreorder.app.ui.friendly
 import com.smartpreorder.app.ui.money
 import com.smartpreorder.app.ui.orderTypeLabel
+import com.smartpreorder.app.ui.parseColorHex
+import com.smartpreorder.app.ui.sanitizeImageUrl
 import com.smartpreorder.app.ui.shortId
+import com.smartpreorder.app.ui.uploadImageToSupabase
+import kotlinx.coroutines.launch
 
 @Composable
 fun AdminApp(auth: AuthViewModel, profile: Profile) {
@@ -190,11 +217,74 @@ private fun AdminOrders(vm: AdminViewModel) {
 @Composable
 private fun AdminManage(vm: AdminViewModel) {
     var newCat by remember { mutableStateOf("") }
+    var showAddPromo by remember { mutableStateOf(false) }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
+        // Promotions Management Section
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Section("Promotions & Banners (${vm.promotions.size})")
+                Button(onClick = { showAddPromo = true }) {
+                    Icon(Ic.Add, "Add", modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Add Banner")
+                }
+            }
+        }
+
+        if (vm.promotions.isEmpty()) {
+            item { Text("No active custom promotions.", color = MaterialTheme.colorScheme.outline) }
+        }
+
+        items(vm.promotions, key = { "promo-" + it.id }) { promo ->
+            val startColor = parseColorHex(promo.startColor, Color(0xFF900C3F))
+            val endColor = parseColorHex(promo.endColor, Color(0xFFC70039))
+            Card(Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .background(Brush.horizontalGradient(listOf(startColor, endColor)))
+                        .padding(12.dp)
+                ) {
+                    val bgImage = sanitizeImageUrl(promo.imageUrl)
+                    if (!bgImage.isNullOrBlank()) {
+                        AsyncImage(
+                            model = bgImage,
+                            contentDescription = promo.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .alpha(0.35f)
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text((promo.title ?: "Banner").uppercase(), fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            promo.discountText?.let { Text(it, fontWeight = FontWeight.Black, color = Color(0xFFFFD700), style = MaterialTheme.typography.titleMedium) }
+                            promo.subtext?.let { Text(it, color = Color.White.copy(alpha = 0.9f), style = MaterialTheme.typography.bodySmall) }
+                        }
+                        IconButton(onClick = { vm.deletePromotion(promo) }) {
+                            Icon(Ic.Delete, "Delete", tint = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
         item { Section("System Security & Status") }
         item {
             Card(Modifier.fillMaxWidth()) {
@@ -238,4 +328,121 @@ private fun AdminManage(vm: AdminViewModel) {
             }
         }
     }
+
+    if (showAddPromo) {
+        AddPromotionDialog(vm = vm, onDismiss = { showAddPromo = false })
+    }
+}
+
+@Composable
+private fun AddPromotionDialog(
+    vm: AdminViewModel,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var titleInput by remember { mutableStateOf("") }
+    var imageUrl by remember { mutableStateOf("") }
+    var isUploadingImage by remember { mutableStateOf(false) }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        uri?.let {
+            isUploadingImage = true
+            scope.launch {
+                try {
+                    imageUrl = uploadImageToSupabase(context, it, "promotions")
+                } catch (e: Exception) {
+                    vm.error = "Upload failed: ${e.friendly()}"
+                } finally {
+                    isUploadingImage = false
+                }
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Promotion Banner", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(
+                Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Select and upload a promotional banner image to display on the Customer App.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+
+                // Large Banner Preview Box
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isUploadingImage) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                            Text("Uploading banner image...", style = MaterialTheme.typography.bodySmall)
+                        }
+                    } else if (imageUrl.isNotBlank()) {
+                        AsyncImage(
+                            model = sanitizeImageUrl(imageUrl),
+                            contentDescription = "Banner Preview",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Ic.Store, "Upload Banner", modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.outline)
+                            Text("No banner image selected", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = { imagePicker.launch("image/*") },
+                    enabled = !isUploadingImage,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (isUploadingImage) "Uploading..." else if (imageUrl.isBlank()) "Select Banner Image *" else "Change Banner Image")
+                }
+
+                OutlinedTextField(
+                    value = titleInput,
+                    onValueChange = { titleInput = it },
+                    label = { Text("Banner Name / Title (Optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    vm.addPromotion(
+                        imageUrl = imageUrl,
+                        title = titleInput.ifBlank { "Promotion Banner" }
+                    )
+                    onDismiss()
+                },
+                enabled = imageUrl.isNotBlank() && !isUploadingImage
+            ) {
+                Text("Save Banner")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
 }

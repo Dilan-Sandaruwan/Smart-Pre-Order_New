@@ -97,6 +97,11 @@ import com.smartpreorder.app.ui.StatusStepper
 import com.smartpreorder.app.ui.formatTime
 import com.smartpreorder.app.ui.money
 import com.smartpreorder.app.ui.orderTypeLabel
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.ui.draw.alpha
+import com.smartpreorder.app.data.Promotion
+import com.smartpreorder.app.ui.parseColorHex
 import com.smartpreorder.app.ui.sanitizeImageUrl
 import com.smartpreorder.app.ui.shortId
 
@@ -108,22 +113,7 @@ fun CustomerApp(auth: AuthViewModel, profile: Profile) {
     val vm: CustomerViewModel = viewModel(key = "customer-${profile.id}")
     LaunchedEffect(vm) { vm.start() }
     val nav = rememberNavController()
-
-    NavHost(navController = nav, startDestination = "tabs") {
-        composable("tabs") { CustomerTabs(vm, auth, nav) }
-        composable("restaurant/{id}") { entry ->
-            RestaurantMenuScreen(vm, entry.arguments?.getString("id").orEmpty(), nav)
-        }
-        composable("cart") { CartScreen(vm, nav) }
-        composable("order/{id}") { entry ->
-            OrderDetailScreen(vm, auth, entry.arguments?.getString("id").orEmpty(), nav)
-        }
-    }
-}
-
-@Composable
-private fun CustomerTabs(vm: CustomerViewModel, auth: AuthViewModel, nav: NavHostController) {
-    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val snack = remember { SnackbarHostState() }
     Notices(vm, snack)
     Notices(auth, snack)
@@ -132,17 +122,33 @@ private fun CustomerTabs(vm: CustomerViewModel, auth: AuthViewModel, nav: NavHos
         snackbarHost = { SnackbarHost(snack) },
         bottomBar = {
             CustomerBottomBar(
-                selectedTab = tab,
-                onTabSelected = { tab = it },
+                selectedTab = selectedTab,
+                onTabSelected = { newTab ->
+                    selectedTab = newTab
+                    if (nav.currentDestination?.route != "tabs") {
+                        nav.popBackStack("tabs", inclusive = false)
+                    }
+                },
                 activeOrderCount = vm.activeOrderCount
             )
         }
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            when (tab) {
-                0 -> RestaurantsTab(vm, nav)
-                1 -> OrdersTab(vm, nav)
-                else -> CustomerProfileTab(vm, auth)
+            NavHost(navController = nav, startDestination = "tabs") {
+                composable("tabs") {
+                    when (selectedTab) {
+                        0 -> RestaurantsTab(vm, nav)
+                        1 -> OrdersTab(vm, nav)
+                        else -> CustomerProfileTab(vm, auth)
+                    }
+                }
+                composable("restaurant/{id}") { entry ->
+                    RestaurantMenuScreen(vm, entry.arguments?.getString("id").orEmpty(), nav)
+                }
+                composable("cart") { CartScreen(vm, nav) }
+                composable("order/{id}") { entry ->
+                    OrderDetailScreen(vm, auth, entry.arguments?.getString("id").orEmpty(), nav)
+                }
             }
         }
     }
@@ -217,6 +223,118 @@ val DEFAULT_OFFERS = listOf(
 )
 
 @Composable
+private fun PromotionBanner(promotions: List<Promotion>) {
+    val displayList = if (promotions.isNotEmpty()) {
+        promotions
+    } else {
+        listOf(
+            Promotion("1", "Big Cravings, Bigger Savings", "Rs. 1000 OFF", "On orders of Rs. 3,000+", null, "#900C3F", "#C70039"),
+            Promotion("2", "Special Discount", "20% OFF", "On all Kottu & Burgers today", null, "#1E5128", "#4E9F3D"),
+            Promotion("3", "Super Deal", "Free Delivery", "For your first 3 pre-orders", null, "#1F4287", "#278EA5")
+        )
+    }
+
+    val pagerState = rememberPagerState(pageCount = { displayList.size })
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            val promo = displayList[page]
+            val bgImage = sanitizeImageUrl(promo.imageUrl)
+
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(160.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (!bgImage.isNullOrBlank()) {
+                        AsyncImage(
+                            model = bgImage,
+                            contentDescription = promo.title ?: "Promotion Banner",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        val startColor = parseColorHex(promo.startColor, Color(0xFF900C3F))
+                        val endColor = parseColorHex(promo.endColor, Color(0xFFC70039))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Brush.horizontalGradient(listOf(startColor, endColor)))
+                                .padding(18.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    promo.title?.let {
+                                        Text(
+                                            it.uppercase(),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color.White
+                                        )
+                                    }
+                                    Spacer(Modifier.height(6.dp))
+                                    promo.discountText?.let { disc ->
+                                        Surface(
+                                            color = Color(0xFFFFD700),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                disc,
+                                                fontWeight = FontWeight.Black,
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                color = Color.Black,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                promo.subtext?.let { sub ->
+                                    if (sub.isNotBlank()) {
+                                        Text(
+                                            sub,
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.White.copy(alpha = 0.95f)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (displayList.size > 1) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                repeat(displayList.size) { iteration ->
+                    val color = if (pagerState.currentPage == iteration) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                    Box(
+                        modifier = Modifier
+                            .padding(3.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .size(if (pagerState.currentPage == iteration) 8.dp else 5.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
     LaunchedEffect(Unit) { vm.refreshRestaurants() }
     var selectedCategory by remember { mutableStateOf<String?>(null) }
@@ -277,60 +395,7 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
         }
 
         item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(vertical = 4.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                items(DEFAULT_OFFERS, key = { it.id }) { offer ->
-                    Card(
-                        shape = RoundedCornerShape(20.dp),
-                        modifier = Modifier
-                            .width(320.dp)
-                            .height(160.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Brush.horizontalGradient(listOf(offer.startColor, offer.endColor)))
-                                .padding(16.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxHeight(),
-                                verticalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(
-                                        offer.title.uppercase(),
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Color.White
-                                    )
-                                    Spacer(Modifier.height(6.dp))
-                                    Surface(
-                                        color = Color(0xFFFFD700),
-                                        shape = RoundedCornerShape(8.dp)
-                                    ) {
-                                        Text(
-                                            offer.discountText,
-                                            fontWeight = FontWeight.Black,
-                                            style = MaterialTheme.typography.headlineSmall,
-                                            color = Color.Black,
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    offer.subtext,
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.9f)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            PromotionBanner(vm.promotions)
         }
 
         item {
@@ -1170,6 +1235,11 @@ private fun OrdersTab(vm: CustomerViewModel, nav: NavHostController) {
 // =====================================================================
 @Composable
 private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: String, nav: NavHostController) {
+    var existingReview by remember { mutableStateOf<Review?>(null) }
+    LaunchedEffect(id) {
+        vm.refreshOrders()
+        existingReview = vm.reviewFor(id)
+    }
     val o = vm.orders.firstOrNull { it.id == id }
     val snack = remember { SnackbarHostState() }
     Notices(vm, snack)
@@ -1196,7 +1266,7 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (o.orderType == "dine_in" && !o.tableNo.isNullOrBlank()) {
+                if (!o.tableNo.isNullOrBlank()) {
                     item {
                         Card(
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -1234,11 +1304,33 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Order #${shortId(o.id)}", fontWeight = FontWeight.Bold)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("Order ${shortId(o.id)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                 StatusChip(o.status)
                             }
-                            Text(o.restaurants?.name ?: "", style = MaterialTheme.typography.titleMedium)
+                            Text(o.restaurants?.name ?: "", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SmallTag(orderTypeLabel(o.orderType))
+                                if (!o.tableNo.isNullOrBlank()) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                        shape = RoundedCornerShape(50)
+                                    ) {
+                                        Text(
+                                            "Table No: ${o.tableNo}",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+
                             HorizontalDivider()
                             StatusStepper(o.status)
                         }
@@ -1264,10 +1356,32 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                     }
                 }
 
-                if (o.status == "completed" && o.restaurantId != null) {
+                if (o.status == "completed") {
                     item {
-                        Button(onClick = { showReview = true }, modifier = Modifier.fillMaxWidth()) {
-                            Text("Write Review")
+                        if (existingReview != null) {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("Your Review", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        RatingBar(existingReview!!.rating)
+                                        Text(" (${existingReview!!.rating}/5)", fontWeight = FontWeight.Bold)
+                                    }
+                                    if (!existingReview!!.comment.isNullOrBlank()) {
+                                        Text("\"${existingReview!!.comment}\"", style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            }
+                        } else {
+                            Button(onClick = { showReview = true }, modifier = Modifier.fillMaxWidth()) {
+                                Text("Write Review")
+                            }
                         }
                     }
                 }
@@ -1289,16 +1403,22 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                         }
                     },
                     confirmButton = {
-                        Button(onClick = {
-                            vm.submitReview(
-                                order = o,
-                                customerName = auth.profile?.fullName.orEmpty().ifEmpty { "Customer" },
-                                rating = rating,
-                                comment = comment
-                            ) {
-                                showReview = false
-                            }
-                        }) { Text("Submit") }
+                        Button(
+                            onClick = {
+                                vm.submitReview(
+                                    order = o,
+                                    customerName = auth.profile?.fullName.orEmpty().ifEmpty { "Customer" },
+                                    rating = rating,
+                                    comment = comment
+                                ) { rev ->
+                                    existingReview = rev
+                                    showReview = false
+                                }
+                            },
+                            enabled = !vm.busy
+                        ) {
+                            Text(if (vm.busy) "Submitting..." else "Submit")
+                        }
                     },
                     dismissButton = {
                         TextButton(onClick = { showReview = false }) { Text("Cancel") }

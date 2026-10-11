@@ -82,6 +82,19 @@ fun sanitizeImageUrl(url: String?): String? {
     return trimmed.replace(" ", "%20")
 }
 
+fun parseColorHex(hex: String?, fallback: Color = Color(0xFF900C3F)): Color = try {
+    if (hex.isNullOrBlank()) fallback
+    else {
+        val clean = hex.removePrefix("#")
+        val colorInt = clean.toLong(16)
+        if (clean.length == 6) Color(0xFF000000 or colorInt)
+        else if (clean.length == 8) Color(colorInt)
+        else fallback
+    }
+} catch (e: Exception) {
+    fallback
+}
+
 fun saveImageLocally(context: Context, uri: Uri): String? {
     return try {
         val inputStream = context.contentResolver.openInputStream(uri) ?: return null

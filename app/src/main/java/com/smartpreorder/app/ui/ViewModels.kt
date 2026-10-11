@@ -153,6 +153,7 @@ class CustomerViewModel : BaseVm() {
 
     var orders by mutableStateOf<List<Order>>(emptyList())
     private var lastStatus: Map<String, String>? = null
+    private var lastTableNo: Map<String, String?>? = null
 
     val cartCount get() = cart.sumOf { it.qty }
     val cartTotal get() = cart.sumOf { it.lineTotal }
@@ -183,15 +184,22 @@ class CustomerViewModel : BaseVm() {
     private suspend fun loadOrders(notify: Boolean) {
         val list = Repo.myOrders()
         val prev = lastStatus
+        val prevTable = lastTableNo
         if (notify && prev != null) {
             list.forEach { o ->
-                val old = prev[o.id]
-                if (old != null && old != o.status) Notifier.statusChanged(o)
+                val oldSt = prev[o.id]
+                val oldT = prevTable?.get(o.id)
+                if (oldSt != null && (oldSt != o.status || oldT != o.tableNo)) {
+                    Notifier.statusChanged(o)
+                }
             }
         }
         lastStatus = list.associate { it.id to it.status }
+        lastTableNo = list.associate { it.id to it.tableNo }
         orders = list
     }
+
+    var promotions by mutableStateOf<List<Promotion>>(emptyList())
 
     fun refreshOrders() = launchSafe { loadOrders(false) }
 
@@ -200,6 +208,7 @@ class CustomerViewModel : BaseVm() {
             restaurants = Repo.restaurants()
             stats = orNull { Repo.restaurantStats() }.orEmpty().associateBy { it.restaurantId }
             categories = orNull { Repo.categories() }.orEmpty()
+            promotions = Repo.promotions()
         } finally {
             loadingRestaurants = false
         }
@@ -510,6 +519,8 @@ class AdminViewModel : BaseVm() {
     var categories by mutableStateOf<List<Category>>(emptyList())
     var reports by mutableStateOf<List<Report>>(emptyList())
 
+    var promotions by mutableStateOf<List<Promotion>>(emptyList())
+
     fun refresh() = launchSafe {
         val p = Repo.myProfile()
         if (p.role != "admin") {
@@ -522,6 +533,7 @@ class AdminViewModel : BaseVm() {
         orders = Repo.allOrders()
         categories = Repo.categories()
         reports = Repo.openReports()
+        promotions = Repo.allPromotions()
     }
 
     fun setRestaurantActive(r: Restaurant, active: Boolean) = launchSafe {
@@ -556,5 +568,41 @@ class AdminViewModel : BaseVm() {
     fun resolveReport(r: Report) = launchSafe {
         Repo.resolveReport(r.id)
         reports = Repo.openReports()
+    }
+
+    fun addPromotion(
+        imageUrl: String,
+        title: String? = null,
+        discountText: String? = null,
+        subtext: String? = null,
+        startColor: String = "#900C3F",
+        endColor: String = "#C70039"
+    ) {
+        if (imageUrl.isBlank()) {
+            error = "Please select and upload a banner image"
+            return
+        }
+        launchSafe {
+            Repo.addPromotion(
+                NewPromotion(
+                    title = title?.trim()?.ifBlank { null } ?: "Promotion Banner",
+                    discountText = discountText?.trim()?.ifBlank { null },
+                    subtext = subtext?.trim()?.ifBlank { null },
+                    imageUrl = imageUrl.trim(),
+                    startColor = startColor,
+                    endColor = endColor
+                )
+            )
+            promotions = Repo.allPromotions()
+            message = "Banner added successfully!"
+        }
+    }
+
+    fun deletePromotion(promo: Promotion) {
+        launchSafe {
+            Repo.deletePromotion(promo.id)
+            promotions = Repo.allPromotions()
+            message = "Promotion deleted!"
+        }
     }
 }

@@ -112,6 +112,18 @@ create table public.reports (
   created_at    timestamptz not null default now()
 );
 
+create table public.promotions (
+  id            uuid primary key default gen_random_uuid(),
+  title         text,
+  discount_text text,
+  subtext       text,
+  image_url     text,
+  start_color   text default '#900C3F',
+  end_color     text default '#C70039',
+  is_active     boolean not null default true,
+  created_at    timestamptz not null default now()
+);
+
 -- average rating per restaurant
 create view public.restaurant_stats with (security_invoker = true) as
   select restaurant_id,

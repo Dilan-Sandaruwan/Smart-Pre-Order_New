@@ -190,6 +190,28 @@ data class NewReport(
 )
 
 @Serializable
+data class Promotion(
+    val id: String,
+    val title: String? = null,
+    @SerialName("discount_text") val discountText: String? = null,
+    val subtext: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("start_color") val startColor: String? = "#900C3F",
+    @SerialName("end_color") val endColor: String? = "#C70039",
+    @SerialName("is_active") val isActive: Boolean = true,
+)
+
+@Serializable
+data class NewPromotion(
+    val title: String? = null,
+    @SerialName("discount_text") val discountText: String? = null,
+    val subtext: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("start_color") val startColor: String? = null,
+    @SerialName("end_color") val endColor: String? = null,
+)
+
+@Serializable
 data class CartLineDto(
     @SerialName("menu_item_id") val menuItemId: String,
     val quantity: Int,

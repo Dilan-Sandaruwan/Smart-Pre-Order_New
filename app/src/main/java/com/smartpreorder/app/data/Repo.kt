@@ -138,6 +138,29 @@ object Repo {
         db.from("reports").insert(NewReport(uid(), restaurantId, reason))
     }
 
+    suspend fun promotions(): List<Promotion> =
+        orNull {
+            db.from("promotions").select {
+                filter { eq("is_active", true) }
+                order("created_at", SortOrder.DESCENDING)
+            }.decodeList<Promotion>()
+        }.orEmpty()
+
+    suspend fun allPromotions(): List<Promotion> =
+        orNull {
+            db.from("promotions").select {
+                order("created_at", SortOrder.DESCENDING)
+            }.decodeList<Promotion>()
+        }.orEmpty()
+
+    suspend fun addPromotion(promo: NewPromotion) {
+        db.from("promotions").insert(promo)
+    }
+
+    suspend fun deletePromotion(id: String) {
+        db.from("promotions").delete { filter { eq("id", id) } }
+    }
+
     // ------------------------------------------------------ restaurant
     suspend fun myRestaurant(): Restaurant? =
         db.from("restaurants").select { filter { eq("owner_id", uid()) } }.decodeList<Restaurant>().firstOrNull()
