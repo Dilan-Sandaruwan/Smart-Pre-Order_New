@@ -2,6 +2,8 @@
 
 package com.smartpreorder.app.ui.customer
 
+import com.smartpreorder.app.R
+
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -162,28 +164,31 @@ fun CustomerApp(auth: AuthViewModel, profile: Profile) {
 data class PopularCategoryItem(
     val name: String,
     val emoji: String,
-    val bgHex: Long = 0xFFFFF3E0
+    val bgHex: Long = 0xFFFFF3E0,
+    val iconRes: Int? = null,
+    val imageUrl: String? = null
 )
 
 val POPULAR_CATEGORIES = listOf(
-    PopularCategoryItem("Rice & Curry", "🍛", 0xFFFFF3E0),
-    PopularCategoryItem("Burgers", "🍔", 0xFFFFEBEE),
-    PopularCategoryItem("Shawarma", "🌯", 0xFFF3E5F5),
-    PopularCategoryItem("Desserts", "🧁", 0xFFFCE4EC),
-    PopularCategoryItem("Beverages", "🥤", 0xFFE0F7FA),
-    PopularCategoryItem("Cafe", "☕", 0xFFEFEBE9),
-    PopularCategoryItem("Pasta", "🍝", 0xFFFFF8E1),
-    PopularCategoryItem("Juices", "🧃", 0xFFF1F8E9),
-    PopularCategoryItem("Bakery", "🥐", 0xFFFFF3E0),
-    PopularCategoryItem("Chinese", "🥢", 0xFFFFEBEE),
-    PopularCategoryItem("Indian", "🥘", 0xFFF3E5F5),
-    PopularCategoryItem("Kottu", "🍲", 0xFFFFE0B2),
-    PopularCategoryItem("Pizza", "🍕", 0xFFFFEBEE),
-    PopularCategoryItem("Short Eats", "🥟", 0xFFFFF8E1),
-    PopularCategoryItem("Fast Food", "🍟", 0xFFFFEBEE),
-    PopularCategoryItem("Vegetarian", "🥗", 0xFFE8F5E9),
-    PopularCategoryItem("Wraps", "🌯", 0xFFF3E5F5),
-    PopularCategoryItem("Sea Food", "🦐", 0xFFE0F7FA)
+    PopularCategoryItem("Rice & Curry", "🍛", 0xFFFFF3E0, R.drawable.rice_and_curry),
+    PopularCategoryItem("Burgers", "🍔", 0xFFFFEBEE, R.drawable.burgers),
+    PopularCategoryItem("Shawarma", "🌯", 0xFFF3E5F5, R.drawable.shawarma),
+    PopularCategoryItem("Desserts", "🧁", 0xFFFCE4EC, R.drawable.desserts),
+    PopularCategoryItem("Beverages", "🥤", 0xFFE0F7FA, R.drawable.beverages),
+    PopularCategoryItem("Cafe", "☕", 0xFFEFEBE9, R.drawable.cafe),
+    PopularCategoryItem("Pasta", "🍝", 0xFFFFF8E1, R.drawable.pasta),
+    PopularCategoryItem("Juices", "🧃", 0xFFF1F8E9, R.drawable.juices),
+    PopularCategoryItem("Bakery", "🥐", 0xFFFFF3E0, R.drawable.bakery),
+    PopularCategoryItem("Chinese", "🥢", 0xFFFFEBEE, R.drawable.chinese),
+    PopularCategoryItem("Indian", "🥘", 0xFFF3E5F5, R.drawable.indian),
+    PopularCategoryItem("Kottu", "🍲", 0xFFFFE0B2, R.drawable.kottu),
+    PopularCategoryItem("Pizza", "🍕", 0xFFFFEBEE, R.drawable.pizza),
+    PopularCategoryItem("Short Eats", "🥟", 0xFFFFF8E1, R.drawable.short_eats),
+    PopularCategoryItem("Fast Food", "🍟", 0xFFFFEBEE, R.drawable.fast_food),
+    PopularCategoryItem("Vegetarian", "🥗", 0xFFE8F5E9, R.drawable.vegetarian),
+    PopularCategoryItem("Wraps", "🌯", 0xFFF3E5F5, R.drawable.wraps),
+    PopularCategoryItem("Noodles", "🍜", 0xFFFFF8E1, R.drawable.noodles),
+    PopularCategoryItem("Sea Food", "🦐", 0xFFE0F7FA, R.drawable.seafood)
 )
 
 data class OfferBanner(
@@ -417,12 +422,25 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
                     }
                 }
 
+                val dbCatNames = vm.categories.map { it.name.lowercase() }.toSet()
+                val mergedCategories = vm.categories.map { c ->
+                    val defaultItem = POPULAR_CATEGORIES.firstOrNull { it.name.equals(c.name, ignoreCase = true) }
+                    PopularCategoryItem(
+                        name = c.name,
+                        emoji = c.emoji ?: defaultItem?.emoji ?: "🍽️",
+                        bgHex = defaultItem?.bgHex ?: 0xFFFFF3E0,
+                        iconRes = defaultItem?.iconRes,
+                        imageUrl = c.imageUrl ?: defaultItem?.imageUrl
+                    )
+                } + POPULAR_CATEGORIES.filter { it.name.lowercase() !in dbCatNames }
+
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     contentPadding = PaddingValues(vertical = 4.dp)
                 ) {
-                    items(POPULAR_CATEGORIES, key = { it.name }) { catItem ->
+                    items(mergedCategories, key = { it.name }) { catItem ->
                         val isSelected = selectedCategory == catItem.name
+                        val catImage = sanitizeImageUrl(catItem.imageUrl)
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.clickable {
@@ -436,7 +454,23 @@ private fun RestaurantsTab(vm: CustomerViewModel, nav: NavHostController) {
                                 modifier = Modifier.size(68.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
-                                    Text(catItem.emoji, style = MaterialTheme.typography.headlineMedium)
+                                    if (!catImage.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = catImage,
+                                            contentDescription = catItem.name,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                        )
+                                    } else if (catItem.iconRes != null) {
+                                        AsyncImage(
+                                            model = catItem.iconRes,
+                                            contentDescription = catItem.name,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize().padding(10.dp).clip(CircleShape)
+                                        )
+                                    } else {
+                                        Text(catItem.emoji, style = MaterialTheme.typography.headlineMedium)
+                                    }
                                 }
                             }
                             Spacer(Modifier.height(6.dp))
@@ -1195,34 +1229,126 @@ private fun CartScreen(vm: CustomerViewModel, nav: NavHostController) {
 // =====================================================================
 @Composable
 private fun OrdersTab(vm: CustomerViewModel, nav: NavHostController) {
+    val activeList = vm.orders.filter { it.status in ACTIVE_STATUSES }
+    val completedList = vm.orders.filter { it.status !in ACTIVE_STATUSES }
+
+    var selectedFilter by remember { mutableStateOf(if (activeList.isNotEmpty()) "active" else "all") }
+
+    val filteredOrders = when (selectedFilter) {
+        "active" -> activeList
+        "completed" -> completedList
+        else -> vm.orders
+    }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        item { Text("My Orders", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("My Orders", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 
-        if (vm.orders.isEmpty()) {
-            item { EmptyState("No orders yet") }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    FilterChip(
+                        selected = selectedFilter == "active",
+                        onClick = { selectedFilter = "active" },
+                        label = { Text("Active (${activeList.size})") }
+                    )
+                    FilterChip(
+                        selected = selectedFilter == "completed",
+                        onClick = { selectedFilter = "completed" },
+                        label = { Text("Completed (${completedList.size})") }
+                    )
+                    FilterChip(
+                        selected = selectedFilter == "all",
+                        onClick = { selectedFilter = "all" },
+                        label = { Text("All (${vm.orders.size})") }
+                    )
+                }
+            }
         }
 
-        items(vm.orders, key = { it.id }) { o ->
+        if (filteredOrders.isEmpty()) {
+            item {
+                val emptyText = when (selectedFilter) {
+                    "active" -> "No live active orders right now."
+                    "completed" -> "No completed past orders yet."
+                    else -> "No orders yet."
+                }
+                EmptyState(emptyText)
+            }
+        }
+
+        items(filteredOrders, key = { it.id }) { o ->
+            val isActiveOrder = o.status in ACTIVE_STATUSES
             Card(
                 onClick = { nav.navigate("order/${o.id}") },
+                shape = RoundedCornerShape(16.dp),
+                colors = if (isActiveOrder) {
+                    CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f))
+                } else {
+                    CardDefaults.cardColors()
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Order #${shortId(o.id)}", fontWeight = FontWeight.Bold)
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Order ${shortId(o.id)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                         StatusChip(o.status)
                     }
-                    Text(o.restaurants?.name ?: "Restaurant", style = MaterialTheme.typography.bodyMedium)
-                    if (!o.tableNo.isNullOrBlank()) {
-                        Text("Table No: ${o.tableNo}", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+                    Text(
+                        o.restaurants?.name ?: "Restaurant",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SmallTag(orderTypeLabel(o.orderType))
+                        if (!o.tableNo.isNullOrBlank()) {
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(50)
+                            ) {
+                                Text(
+                                    "Table No: ${o.tableNo}",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                )
+                            }
+                        }
                     }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(money(o.total), fontWeight = FontWeight.Bold)
+
+                    if (o.items.isNotEmpty()) {
+                        Text(
+                            o.items.joinToString(", ") { "${it.quantity}× ${it.itemName}" },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+
+                    HorizontalDivider()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(formatTime(o.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text(money(o.total), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -1250,7 +1376,7 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Order Details") },
+                title = { Text("Order Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = { IconButton(onClick = { nav.popBackStack() }) { Icon(Ic.Back, "Back") } }
             )
         },
@@ -1258,14 +1384,15 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
     ) { pad ->
         if (o == null) {
             Box(Modifier.padding(pad).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Order not found")
+                EmptyState("Order not found")
             }
         } else {
             LazyColumn(
                 Modifier.padding(pad).fillMaxSize(),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // Table Assigned Banner for Dine-in
                 if (!o.tableNo.isNullOrBlank()) {
                     item {
                         Card(
@@ -1301,14 +1428,27 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                     }
                 }
 
+                // Live Status / Order Info Card
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 Text("Order ${shortId(o.id)}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                 StatusChip(o.status)
                             }
-                            Text(o.restaurants?.name ?: "", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+
+                            Text(
+                                o.restaurants?.name ?: "Restaurant",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
 
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1329,33 +1469,113 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                                         )
                                     }
                                 }
+                                Text(
+                                    formatTime(o.createdAt),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
                             }
 
                             HorizontalDivider()
+
+                            // Modern Timeline Stepper
                             StatusStepper(o.status)
                         }
                     }
                 }
 
+                // Ordered Items Breakdown
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Items", fontWeight = FontWeight.Bold)
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Ordered Items", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            HorizontalDivider()
+
                             o.items.forEach { item ->
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("${item.quantity}x ${item.itemName}")
-                                    Text(money(item.unitPrice * item.quantity))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                "${item.quantity}x",
+                                                fontWeight = FontWeight.Bold,
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                        Text(
+                                            item.itemName,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                    Text(
+                                        money(item.unitPrice * item.quantity),
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
                                 }
                             }
-                            HorizontalDivider()
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Total", fontWeight = FontWeight.Bold)
-                                Text(money(o.total), fontWeight = FontWeight.Bold)
+
+                            if (!o.note.isNullOrBlank()) {
+                                HorizontalDivider()
+                                Text("📝 Note: ${o.note}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }
                 }
 
+                // Payment Summary Card
+                item {
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Payment Summary", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Subtotal", color = MaterialTheme.colorScheme.outline)
+                                Text(money(o.total), fontWeight = FontWeight.SemiBold)
+                            }
+                            HorizontalDivider()
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Total Amount Paid", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    money(o.total),
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Rating & Review for Completed Orders
                 if (o.status == "completed") {
                     item {
                         if (existingReview != null) {
@@ -1379,8 +1599,12 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                                 }
                             }
                         } else {
-                            Button(onClick = { showReview = true }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Write Review")
+                            Button(
+                                onClick = { showReview = true },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("⭐ Rate & Review Restaurant", fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -1390,14 +1614,15 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
             if (showReview) {
                 AlertDialog(
                     onDismissRequest = { showReview = false },
-                    title = { Text("Rate Restaurant") },
+                    title = { Text("Rate Restaurant", fontWeight = FontWeight.Bold) },
                     text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             RatingBar(rating) { rating = it }
                             OutlinedTextField(
                                 value = comment,
                                 onValueChange = { comment = it },
-                                placeholder = { Text("Leave a comment...") },
+                                placeholder = { Text("Leave a comment (optional)...") },
+                                shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -1417,7 +1642,7 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
                             },
                             enabled = !vm.busy
                         ) {
-                            Text(if (vm.busy) "Submitting..." else "Submit")
+                            Text(if (vm.busy) "Submitting..." else "Submit Review")
                         }
                     },
                     dismissButton = {

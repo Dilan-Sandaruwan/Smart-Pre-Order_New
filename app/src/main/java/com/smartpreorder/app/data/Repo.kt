@@ -350,8 +350,12 @@ object Repo {
             limit(100)
         }.decodeList()
 
-    suspend fun addCategory(name: String) {
-        db.from("categories").insert(buildJsonObject { put("name", name) })
+    suspend fun addCategory(name: String, imageUrl: String? = null, emoji: String? = null) {
+        db.from("categories").insert(buildJsonObject {
+            put("name", name)
+            if (!imageUrl.isNullOrBlank()) put("image_url", imageUrl)
+            if (!emoji.isNullOrBlank()) put("emoji", emoji)
+        })
     }
 
     suspend fun deleteCategory(id: String) {

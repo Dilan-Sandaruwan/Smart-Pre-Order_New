@@ -322,8 +322,26 @@ private fun AdminManage(vm: AdminViewModel) {
             }
         }
         items(vm.categories, key = { "c-" + it.id }) { c ->
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Text(c.name, modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                val catImg = sanitizeImageUrl(c.imageUrl)
+                if (!catImg.isNullOrBlank()) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = catImg,
+                            contentDescription = c.name,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(c.name, modifier = Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
                 TextButton(onClick = { vm.deleteCategory(c) }) { Text("Delete") }
             }
         }

@@ -59,7 +59,12 @@ data class PortionSize(
 )
 
 @Serializable
-data class Category(val id: String, val name: String)
+data class Category(
+    val id: String,
+    val name: String,
+    @SerialName("image_url") val imageUrl: String? = null,
+    val emoji: String? = null
+)
 
 @Serializable
 data class MenuItem(

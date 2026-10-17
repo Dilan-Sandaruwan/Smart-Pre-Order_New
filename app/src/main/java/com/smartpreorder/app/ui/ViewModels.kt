@@ -552,11 +552,12 @@ class AdminViewModel : BaseVm() {
         users = Repo.allProfiles()
     }
 
-    fun addCategory(name: String) {
+    fun addCategory(name: String, imageUrl: String? = null, emoji: String? = null) {
         if (name.isBlank()) return
         launchSafe {
-            Repo.addCategory(name.trim())
+            Repo.addCategory(name.trim(), imageUrl?.ifBlank { null }, emoji?.ifBlank { null })
             categories = Repo.categories()
+            message = "Category added!"
         }
     }
 

@@ -7,9 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -259,25 +263,74 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
 @Composable
 fun StatusStepper(status: String) {
     val steps = listOf("pending", "accepted", "preparing", "ready", "completed")
-    val cur = steps.indexOf(status)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        steps.forEachIndexed { i, s ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+    val cur = steps.indexOf(status).coerceAtLeast(0)
+
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            steps.forEachIndexed { i, s ->
+                val isCompletedStep = i < cur || status == "completed"
+                val isCurrentStep = i == cur && status != "completed"
+
+                // Step Circle
                 Box(
-                    Modifier.size(26.dp).background(
-                        if (i <= cur) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                        CircleShape
-                    ),
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(
+                            color = when {
+                                isCompletedStep -> MaterialTheme.colorScheme.primary
+                                isCurrentStep -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.surfaceVariant
+                            },
+                            shape = CircleShape
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (i < cur || status == "completed") {
+                    if (isCompletedStep) {
                         Icon(Ic.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                    } else if (isCurrentStep) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .background(MaterialTheme.colorScheme.onPrimary, CircleShape)
+                        )
                     }
                 }
+
+                // Connecting Line between step circles
+                if (i < steps.lastIndex) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp)
+                            .background(
+                                if (i < cur || (i == cur && status == "completed")) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.surfaceVariant
+                            )
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Step text labels row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            steps.forEachIndexed { i, s ->
+                val isCurrent = i == cur
                 Text(
-                    statusLabel(s), style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (i == cur) FontWeight.Bold else FontWeight.Normal,
-                    modifier = Modifier.padding(top = 4.dp)
+                    text = statusLabel(s),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 11.sp,
+                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
