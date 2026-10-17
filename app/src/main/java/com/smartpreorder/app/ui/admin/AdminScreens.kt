@@ -27,11 +27,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -57,6 +60,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -129,31 +133,265 @@ fun AdminApp(auth: AuthViewModel, profile: Profile) {
 
 @Composable
 private fun AdminDashboard(vm: AdminViewModel) {
-    val s = vm.stats
+    val totalOrders = vm.totalOrdersCount.coerceAtLeast(1)
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = Modifier.fillMaxSize()
     ) {
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Customers", "${s.customers}", Modifier.weight(1f))
-                StatCard("Restaurants", "${s.restaurants}", Modifier.weight(1f))
+            Text("Dashboard Overview", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
+
+        // Action / Alert Banners
+        if (vm.pendingRestaurantsCount > 0) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("⏳", style = MaterialTheme.typography.headlineMedium)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Restaurant Verification Needed", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text("${vm.pendingRestaurantsCount} restaurant(s) awaiting approval", style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
+                }
             }
         }
+
+        if (vm.reports.isNotEmpty()) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("⚠️", style = MaterialTheme.typography.headlineMedium)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Open Customer Reports", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                            Text("${vm.reports.size} report(s) require admin review", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Key Stat Cards Grid
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Total orders", "${s.orders}", Modifier.weight(1f))
-                StatCard("Revenue (completed)", money(s.revenue), Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AdminStatCard(
+                        title = "Customers",
+                        value = "${vm.totalCustomers}",
+                        subtitle = "Total Registered",
+                        icon = Ic.People,
+                        bgColor = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AdminStatCard(
+                        title = "Restaurants",
+                        value = "${vm.totalRestaurants}",
+                        subtitle = "${vm.approvedRestaurantsCount} Approved • ${vm.pendingRestaurantsCount} Pending",
+                        icon = Ic.Store,
+                        bgColor = MaterialTheme.colorScheme.secondaryContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AdminStatCard(
+                        title = "Completed Orders",
+                        value = "${vm.completedOrdersCount}",
+                        subtitle = "Out of ${vm.totalOrdersCount} total orders",
+                        icon = Ic.Receipt,
+                        bgColor = MaterialTheme.colorScheme.tertiaryContainer,
+                        modifier = Modifier.weight(1f)
+                    )
+                    AdminStatCard(
+                        title = "Platform Revenue",
+                        value = money(vm.totalRevenue),
+                        subtitle = "From completed orders",
+                        icon = Ic.Chart,
+                        bgColor = Color(0xFFD4F4DD),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
-        item { Section("Orders by status") }
-        val order = listOf("pending", "accepted", "preparing", "ready", "completed", "rejected", "cancelled")
-        items(order, key = { it }) { st ->
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                StatusChip(st)
-                Text("  ${s.byStatus[st] ?: 0}", fontWeight = FontWeight.Bold)
+
+        // Order Status Distribution Visualizer
+        item {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("Order Status Distribution", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    HorizontalDivider()
+
+                    val statusList = listOf("pending", "accepted", "preparing", "ready", "completed", "rejected", "cancelled")
+                    val byStatus = vm.ordersByStatus
+
+                    statusList.forEach { st ->
+                        val count = byStatus[st] ?: 0
+                        val fraction = count.toFloat() / totalOrders
+
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    StatusChip(st)
+                                    Text(
+                                        "${(fraction * 100).toInt()}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                                Text("$count Orders", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            }
+
+                            LinearProgressIndicator(
+                                progress = { fraction },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(6.dp)
+                                    .clip(RoundedCornerShape(3.dp)),
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        }
+                    }
+                }
             }
+        }
+
+        // Top Performing Restaurants
+        val topRestaurants = vm.restaurants.map { r ->
+            val rOrders = vm.orders.filter { it.restaurantId == r.id && it.status == "completed" }
+            val rRevenue = rOrders.sumOf { it.total }
+            Triple(r, rOrders.size, rRevenue)
+        }.sortedByDescending { it.third }.take(5)
+
+        if (topRestaurants.isNotEmpty() && topRestaurants.any { it.third > 0 || it.second > 0 }) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("🏆 Top Performing Restaurants", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        HorizontalDivider()
+
+                        topRestaurants.forEachIndexed { idx, (r, count, rev) ->
+                            val medal = when (idx) {
+                                0 -> "🥇"
+                                1 -> "🥈"
+                                2 -> "🥉"
+                                else -> "${idx + 1}."
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(medal, style = MaterialTheme.typography.titleMedium)
+                                    Column {
+                                        Text(r.name, fontWeight = FontWeight.Bold)
+                                        Text("$count completed order(s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                    }
+                                }
+                                Text(money(rev), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Recent Live Activity Stream
+        if (vm.orders.isNotEmpty()) {
+            item { Section("Recent Orders Activity") }
+            items(vm.orders.take(5), key = { "act-" + it.id }) { o ->
+                Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${shortId(o.id)} • ${o.restaurants?.name ?: "Restaurant"}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            StatusChip(o.status)
+                        }
+                        Text("${o.customerName ?: "Customer"} • ${orderTypeLabel(o.orderType)}", style = MaterialTheme.typography.bodySmall)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(formatTime(o.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            Text(money(o.total), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdminStatCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    icon: ImageVector,
+    bgColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.outline)
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(bgColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, title, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, maxLines = 1)
         }
     }
 }

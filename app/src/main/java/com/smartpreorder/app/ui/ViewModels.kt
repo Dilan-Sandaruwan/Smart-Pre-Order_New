@@ -544,6 +544,30 @@ class AdminViewModel : BaseVm() {
 
     var promotions by mutableStateOf<List<Promotion>>(emptyList())
 
+    val totalCustomers: Int
+        get() = if (users.isNotEmpty()) users.count { it.role != "admin" } else stats.customers
+
+    val totalRestaurants: Int
+        get() = if (restaurants.isNotEmpty()) restaurants.size else stats.restaurants
+
+    val approvedRestaurantsCount: Int
+        get() = restaurants.count { it.approvalStatus == "approved" }
+
+    val pendingRestaurantsCount: Int
+        get() = restaurants.count { it.approvalStatus == "pending" }
+
+    val completedOrdersCount: Int
+        get() = if (orders.isNotEmpty()) orders.count { it.status == "completed" } else stats.orders
+
+    val totalOrdersCount: Int
+        get() = if (orders.isNotEmpty()) orders.size else stats.orders
+
+    val totalRevenue: Double
+        get() = if (orders.isNotEmpty()) orders.filter { it.status == "completed" }.sumOf { it.total } else stats.revenue
+
+    val ordersByStatus: Map<String, Int>
+        get() = if (orders.isNotEmpty()) orders.groupBy { it.status }.mapValues { it.value.size } else stats.byStatus
+
     fun refresh() = launchSafe {
         val p = Repo.myProfile()
         if (p.role != "admin") {
