@@ -124,6 +124,17 @@ create table public.promotions (
   created_at    timestamptz not null default now()
 );
 
+create table public.sales_reports (
+  id            uuid primary key default gen_random_uuid(),
+  restaurant_id uuid not null references public.restaurants(id) on delete cascade,
+  period_type   text not null check (period_type in ('daily', 'weekly', 'monthly', 'all')),
+  period_label  text not null,
+  total_sales   numeric(10,2) not null default 0.00,
+  total_orders  int not null default 0,
+  file_url      text,
+  created_at    timestamptz not null default now()
+);
+
 -- average rating per restaurant
 create view public.restaurant_stats with (security_invoker = true) as
   select restaurant_id,

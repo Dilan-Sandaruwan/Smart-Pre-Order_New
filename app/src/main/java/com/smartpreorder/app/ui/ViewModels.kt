@@ -364,6 +364,8 @@ class RestaurantViewModel : BaseVm() {
         }
     }
 
+    var salesReports by mutableStateOf<List<SalesReport>>(emptyList())
+
     private suspend fun loadOrders(rid: String, notify: Boolean) {
         val list = Repo.restaurantOrders(rid)
         val prev = seen
@@ -372,6 +374,25 @@ class RestaurantViewModel : BaseVm() {
         }
         seen = list.map { it.id }.toSet()
         orders = list
+        salesReports = Repo.salesReports(rid)
+    }
+
+    fun saveSalesReport(periodType: String, periodLabel: String, totalSales: Double, totalOrders: Int, fileUrl: String?) {
+        val r = restaurant ?: return
+        launchSafe {
+            Repo.saveSalesReport(
+                NewSalesReport(
+                    restaurantId = r.id,
+                    periodType = periodType,
+                    periodLabel = periodLabel,
+                    totalSales = totalSales,
+                    totalOrders = totalOrders,
+                    fileUrl = fileUrl
+                )
+            )
+            salesReports = Repo.salesReports(r.id)
+            message = "📊 Sales report saved to database!"
+        }
     }
 
     fun refresh() = launchSafe {

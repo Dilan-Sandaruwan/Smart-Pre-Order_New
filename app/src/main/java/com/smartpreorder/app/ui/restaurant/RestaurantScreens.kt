@@ -2,6 +2,14 @@
 
 package com.smartpreorder.app.ui.restaurant
 
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.FileProvider
+import androidx.compose.material3.FilterChip
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import com.smartpreorder.app.ui.generateExcelXlsx
+import com.smartpreorder.app.ui.uploadFileToSupabase
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -428,39 +436,228 @@ private fun EtaDialog(initial: Int, title: String, confirmLabel: String, onConfi
 // =====================================================================
 @Composable
 private fun SalesTab(vm: RestaurantViewModel) {
-    val today = vm.todayCompleted
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var selectedPeriod by remember { mutableStateOf("daily") } // "daily", "weekly", "monthly", "all"
+    var isExporting by remember { mutableStateOf(false) }
+
+    val now = OffsetDateTime.now()
+    val todayStart = now.toLocalDate().atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime()
+    val weekStart = now.minusDays(7)
+    val monthStart = now.minusDays(30)
+
+    val completedOrders = vm.completed
+
+    val periodOrders = when (selectedPeriod) {
+        "daily" -> completedOrders.filter {
+            try { OffsetDateTime.parse(it.createdAt).isAfter(todayStart) } catch (e: Exception) { true }
+        }
+        "weekly" -> completedOrders.filter {
+            try { OffsetDateTime.parse(it.createdAt).isAfter(weekStart) } catch (e: Exception) { true }
+        }
+        "monthly" -> completedOrders.filter {
+            try { OffsetDateTime.parse(it.createdAt).isAfter(monthStart) } catch (e: Exception) { true }
+        }
+        else -> completedOrders
+    }
+
+    val periodSalesTotal = periodOrders.sumOf { it.total }
+    val periodLabel = when (selectedPeriod) {
+        "daily" -> "Daily (Today)"
+        "weekly" -> "Weekly (Last 7 Days)"
+        "monthly" -> "Monthly (Last 30 Days)"
+        else -> "All Time"
+    }
+
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = Modifier.fillMaxSize()
     ) {
-        item { Text("Sales", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Today's orders", "${today.size}", Modifier.weight(1f))
-                StatCard("Today's sales", money(today.sumOf { it.total }), Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Sales Analytics & Reports", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+
+                // Period Filter Chips
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    FilterChip(
+                        selected = selectedPeriod == "daily",
+                        onClick = { selectedPeriod = "daily" },
+                        label = { Text("Daily") }
+                    )
+                    FilterChip(
+                        selected = selectedPeriod == "weekly",
+                        onClick = { selectedPeriod = "weekly" },
+                        label = { Text("Weekly") }
+                    )
+                    FilterChip(
+                        selected = selectedPeriod == "monthly",
+                        onClick = { selectedPeriod = "monthly" },
+                        label = { Text("Monthly") }
+                    )
+                    FilterChip(
+                        selected = selectedPeriod == "all",
+                        onClick = { selectedPeriod = "all" },
+                        label = { Text("All Time") }
+                    )
+                }
             }
         }
+
+        // Summary Cards for Selected Period
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard("Completed (all)", "${vm.completed.size}", Modifier.weight(1f))
-                StatCard("Total sales", money(vm.totalSales), Modifier.weight(1f))
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        "📊 $periodLabel Sales Summary",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Total Sales Revenue", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                            Text(
+                                money(periodSalesTotal),
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("Completed Orders", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                            Text(
+                                "${periodOrders.size}",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    // Export Excel Button
+                    Button(
+                        onClick = {
+                            isExporting = true
+                            scope.launch {
+                                try {
+                                    val rName = vm.restaurant?.name ?: "Restaurant"
+                                    val xlsxFile = generateExcelXlsx(context, rName, periodLabel, periodOrders)
+                                    val fileUrl = uploadFileToSupabase(xlsxFile, "reports")
+
+                                    vm.saveSalesReport(
+                                        periodType = selectedPeriod,
+                                        periodLabel = periodLabel,
+                                        totalSales = periodSalesTotal,
+                                        totalOrders = periodOrders.size,
+                                        fileUrl = fileUrl
+                                    )
+
+                                    // Open file / Share Sheet
+                                    val uri = FileProvider.getUriForFile(
+                                        context,
+                                        "${context.packageName}.fileprovider",
+                                        xlsxFile
+                                    )
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    }
+                                    context.startActivity(Intent.createChooser(intent, "Open Excel Sales Report"))
+                                } catch (e: Exception) {
+                                    vm.error = "Export failed: ${e.friendly()}"
+                                } finally {
+                                    isExporting = false
+                                }
+                            }
+                        },
+                        enabled = !isExporting && periodOrders.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isExporting) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Generating Excel...")
+                        } else {
+                            Text("📥 Export & Save Excel (.xlsx) Report", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
-        item { Section("Order history") }
-        if (vm.historyOrders.isEmpty()) item { EmptyState("No finished orders yet.") }
-        items(vm.historyOrders, key = { "h-" + it.id }) { o ->
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+
+        // Saved Reports in Database Section
+        if (vm.salesReports.isNotEmpty()) {
+            item { Section("Saved Reports in Database (${vm.salesReports.size})") }
+            items(vm.salesReports, key = { "rep-" + it.id }) { rep ->
+                Card(
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(rep.periodLabel, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                            Text("Sales: ${money(rep.totalSales)} • ${rep.totalOrders} Orders", style = MaterialTheme.typography.bodyMedium)
+                            rep.createdAt?.let {
+                                Text(formatTime(it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+
+                        if (!rep.fileUrl.isNullOrBlank()) {
+                            IconButton(onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(rep.fileUrl))
+                                context.startActivity(intent)
+                            }) {
+                                Icon(Ic.Download, "Download Excel", tint = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Order History list
+        item { Section("Completed Order History (${periodOrders.size})") }
+        if (periodOrders.isEmpty()) {
+            item { EmptyState("No finished orders for this period.") }
+        }
+
+        items(periodOrders, key = { "h-" + it.id }) { o ->
+            Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("${shortId(o.id)}  ${o.customerName ?: ""}", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text("${shortId(o.id)}  ${o.customerName ?: "Customer"}", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                         StatusChip(o.status)
                     }
                     Text(o.items.joinToString { "${it.quantity}× ${it.itemName}" }, style = MaterialTheme.typography.bodySmall)
-                    Row {
-                        Text(formatTime(o.createdAt), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline, modifier = Modifier.weight(1f))
-                        Text(money(o.total), fontWeight = FontWeight.Bold)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(formatTime(o.createdAt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        Text(money(o.total), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
             }

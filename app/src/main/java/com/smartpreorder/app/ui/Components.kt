@@ -36,6 +36,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import android.content.Context
 import android.net.Uri
+import android.os.Environment
+import com.smartpreorder.app.data.Order
+import java.io.File
+import java.io.FileOutputStream
+import java.util.UUID
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -49,7 +56,6 @@ import java.util.Locale
 
 import com.smartpreorder.app.data.supabase
 import io.github.jan.supabase.storage.storage
-import java.util.UUID
 
 const val SUPABASE_STORAGE_BUCKET = "MAD APP images"
 
@@ -77,6 +83,128 @@ suspend fun uploadImageToSupabase(context: Context, uri: Uri, folder: String = "
     bucket.upload(fileName, byteArray)
 
     return bucket.publicUrl(fileName).replace(" ", "%20")
+}
+
+suspend fun uploadFileToSupabase(file: File, folder: String = "reports"): String {
+    val byteArray = file.readBytes()
+    val fileName = "$folder/${UUID.randomUUID()}.xlsx"
+    val bucket = supabase.storage.from(SUPABASE_STORAGE_BUCKET)
+    bucket.upload(fileName, byteArray)
+    return bucket.publicUrl(fileName).replace(" ", "%20")
+}
+
+fun escapeXml(text: String): String =
+    text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
+        .replace("'", "&apos;")
+
+fun generateExcelXlsx(
+    context: Context,
+    restaurantName: String,
+    periodLabel: String,
+    orders: List<Order>
+): File {
+    val sheetXml = buildString {
+        append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
+        append("""<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">""")
+        append("""<sheetData>""")
+
+        append("""<row r="1">""")
+        append("""<c r="A1" t="inlineStr"><is><t>Sales Report - ${escapeXml(restaurantName)} (${escapeXml(periodLabel)})</t></is></c>""")
+        append("""</row>""")
+
+        append("""<row r="2"/>""")
+
+        val headers = listOf("Order ID", "Date & Time", "Customer Name", "Order Type", "Items Purchased", "Table No", "Status", "Amount (Rs.)")
+        append("""<row r="3">""")
+        headers.forEachIndexed { colIdx, header ->
+            val colLetter = ('A' + colIdx).toString()
+            append("""<c r="${colLetter}3" t="inlineStr"><is><t>${escapeXml(header)}</t></is></c>""")
+        }
+        append("""</row>""")
+
+        orders.forEachIndexed { rowIdx, o ->
+            val rNum = rowIdx + 4
+            val itemsStr = o.items.joinToString("; ") { "${it.quantity}x ${it.itemName}" }
+            val colValues = listOf(
+                shortId(o.id),
+                formatTime(o.createdAt),
+                o.customerName ?: "Customer",
+                orderTypeLabel(o.orderType),
+                itemsStr,
+                o.tableNo ?: "-",
+                o.status.uppercase(),
+                o.total.toString()
+            )
+
+            append("""<row r="$rNum">""")
+            colValues.forEachIndexed { cIdx, value ->
+                val colLetter = ('A' + cIdx).toString()
+                if (cIdx == 7) {
+                    append("""<c r="$colLetter$rNum"><v>$value</v></c>""")
+                } else {
+                    append("""<c r="$colLetter$rNum" t="inlineStr"><is><t>${escapeXml(value)}</t></is></c>""")
+                }
+            }
+            append("""</row>""")
+        }
+
+        val totalRow = orders.size + 5
+        val totalAmount = orders.sumOf { it.total }
+        append("""<row r="$totalRow">""")
+        append("""<c r="A$totalRow" t="inlineStr"><is><t>TOTAL SALES (${orders.size} Orders)</t></is></c>""")
+        append("""<c r="H$totalRow"><v>$totalAmount</v></c>""")
+        append("""</row>""")
+
+        append("""</sheetData>""")
+        append("""</worksheet>""")
+    }
+
+    val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+    val file = File(dir, "SalesReport_${restaurantName.replace(" ", "_")}_${periodLabel.replace(" ", "_")}_${System.currentTimeMillis()}.xlsx")
+
+    ZipOutputStream(FileOutputStream(file)).use { zip ->
+        zip.putNextEntry(ZipEntry("[Content_Types].xml"))
+        zip.write("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>""".toByteArray())
+        zip.closeEntry()
+
+        zip.putNextEntry(ZipEntry("_rels/.rels"))
+        zip.write("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>""".toByteArray())
+        zip.closeEntry()
+
+        zip.putNextEntry(ZipEntry("xl/_rels/workbook.xml.rels"))
+        zip.write("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>""".toByteArray())
+        zip.closeEntry()
+
+        zip.putNextEntry(ZipEntry("xl/workbook.xml"))
+        zip.write("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Sales Report" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>""".toByteArray())
+        zip.closeEntry()
+
+        zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"))
+        zip.write(sheetXml.toByteArray(Charsets.UTF_8))
+        zip.closeEntry()
+    }
+
+    return file
 }
 
 fun sanitizeImageUrl(url: String?): String? {

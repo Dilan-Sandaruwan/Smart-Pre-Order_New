@@ -217,6 +217,28 @@ data class NewPromotion(
 )
 
 @Serializable
+data class SalesReport(
+    val id: String,
+    @SerialName("restaurant_id") val restaurantId: String,
+    @SerialName("period_type") val periodType: String,
+    @SerialName("period_label") val periodLabel: String,
+    @SerialName("total_sales") val totalSales: Double = 0.0,
+    @SerialName("total_orders") val totalOrders: Int = 0,
+    @SerialName("file_url") val fileUrl: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+)
+
+@Serializable
+data class NewSalesReport(
+    @SerialName("restaurant_id") val restaurantId: String,
+    @SerialName("period_type") val periodType: String,
+    @SerialName("period_label") val periodLabel: String,
+    @SerialName("total_sales") val totalSales: Double,
+    @SerialName("total_orders") val totalOrders: Int,
+    @SerialName("file_url") val fileUrl: String?,
+)
+
+@Serializable
 data class CartLineDto(
     @SerialName("menu_item_id") val menuItemId: String,
     val quantity: Int,

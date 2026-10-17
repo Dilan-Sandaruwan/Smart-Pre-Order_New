@@ -27,6 +27,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.filled.Store
 
+import androidx.compose.material.icons.filled.FileDownload
+
 /** All icons used in the app in one place. */
 object Ic {
     val Add = Icons.Filled.Add
@@ -54,4 +56,5 @@ object Ic {
     val Refresh = Icons.Filled.Refresh
     val Settings = Icons.Filled.Settings
     val Security = Icons.Filled.Security
+    val Download = Icons.Filled.FileDownload
 }

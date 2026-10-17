@@ -255,6 +255,19 @@ object Repo {
             limit(200)
         }.decodeList()
 
+    suspend fun salesReports(restaurantId: String): List<SalesReport> =
+        orNull {
+            db.from("sales_reports").select {
+                filter { eq("restaurant_id", restaurantId) }
+                order("created_at", SortOrder.DESCENDING)
+            }.decodeList<SalesReport>()
+        }.orEmpty()
+
+    suspend fun saveSalesReport(report: NewSalesReport): SalesReport? =
+        orNull {
+            db.from("sales_reports").insert(report) { select() }.decodeSingle<SalesReport>()
+        }
+
     suspend fun setOrderStatus(orderId: String, status: String, minutes: Int? = null, reason: String? = null, tableNo: String? = null) {
         db.from("orders").update(buildJsonObject {
             put("status", status)
