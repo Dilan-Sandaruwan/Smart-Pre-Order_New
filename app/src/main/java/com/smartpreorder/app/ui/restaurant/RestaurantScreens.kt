@@ -47,14 +47,19 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import com.smartpreorder.app.ui.sanitizeImageUrl
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
@@ -69,7 +74,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -473,6 +477,8 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    var isEditing by remember { mutableStateOf(false) }
+
     var name by remember(r.id) { mutableStateOf(r.name) }
     var desc by remember(r.id) { mutableStateOf(r.description.orEmpty()) }
     var email by remember(r.id) { mutableStateOf(r.email.orEmpty()) }
@@ -542,111 +548,330 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
 
     Column(
         Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Restaurant profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text(Repo.email(), color = MaterialTheme.colorScheme.outline)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text("Restaurant Profile", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(Repo.email(), color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+            }
+
+            if (!isEditing) {
+                Button(
+                    onClick = { isEditing = true },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Ic.Edit, "Edit", modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Edit Profile")
+                }
+            }
+        }
+
+        // Approval Banner
         RestaurantApprovalBanner(r)
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Accepting orders", fontWeight = FontWeight.SemiBold)
-                Text("Turn off when you're closed or too busy", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline)
-            }
-            Switch(checked = open, onCheckedChange = { open = it })
-        }
-
-        Section("Restaurant Images")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    Modifier.size(80.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isUploadingLogo) {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                    } else if (imageUrl.isNotBlank()) {
-                        AsyncImage(model = imageUrl, contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    } else {
-                        Icon(Ic.Store, null, tint = MaterialTheme.colorScheme.outline)
-                    }
-                }
-                TextButton(onClick = { logoPicker.launch("image/*") }, enabled = !isUploadingLogo) {
-                    Text(if (isUploadingLogo) "Uploading..." else if (imageUrl.isBlank()) "Add Logo" else "Change Logo")
-                }
-            }
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    Modifier.fillMaxWidth().height(80.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isUploadingCover) {
-                        CircularProgressIndicator(modifier = Modifier.size(32.dp))
-                    } else if (coverImageUrl.isNotBlank()) {
-                        AsyncImage(model = coverImageUrl, contentDescription = "Cover", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                    } else {
-                        Text("Cover Photo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    }
-                }
-                TextButton(onClick = { coverPicker.launch("image/*") }, enabled = !isUploadingCover) {
-                    Text(if (isUploadingCover) "Uploading..." else if (coverImageUrl.isBlank()) "Add Cover" else "Change Cover")
-                }
-            }
-        }
-
-        Section("Basic Information")
-        OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(email, { email = it }, label = { Text("Business Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
-
-        Section("Location")
-        OutlinedTextField(address, { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(city, { city = it }, label = { Text("City") }, singleLine = true, modifier = Modifier.weight(1f))
-            OutlinedTextField(district, { district = it }, label = { Text("District") }, singleLine = true, modifier = Modifier.weight(1f))
-        }
-        OutlinedTextField(postalCode, { postalCode = it }, label = { Text("Postal Code") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-
-        Section("Business & Operations")
-        OutlinedTextField(businessRegNo, { businessRegNo = it }, label = { Text("Business Registration No.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(minOrderAmount, { minOrderAmount = it }, label = { Text("Min Order (Rs.)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
-            OutlinedTextField(prepTime, { prepTime = it }, label = { Text("Est. Prep (min)") }, singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
-        }
-        OutlinedTextField(deliveryRadius, { deliveryRadius = it }, label = { Text("Delivery Radius (km)") }, singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
-
-        Button(
-            onClick = {
-                vm.updateRestaurant(
-                    name = name,
-                    description = desc,
-                    address = address,
-                    phone = phone,
-                    email = email,
-                    imageUrl = imageUrl,
-                    coverImageUrl = coverImageUrl,
-                    city = city,
-                    district = district,
-                    postalCode = postalCode,
-                    businessRegistrationNo = businessRegNo,
-                    minOrderAmount = minOrderAmount.toDoubleOrNull() ?: 0.0,
-                    estimatedPrepTimeMinutes = prepTime.toIntOrNull(),
-                    deliveryRadiusKm = deliveryRadius.toDoubleOrNull(),
-                    isOpen = open
-                )
-            },
+        // Top Header Card with Cover and Logo
+        Card(
+            shape = RoundedCornerShape(20.dp),
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Save") }
+        ) {
+            Column {
+                Box(modifier = Modifier.fillMaxWidth().height(140.dp)) {
+                    val cUrl = sanitizeImageUrl(coverImageUrl)
+                    if (!cUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = cUrl,
+                            contentDescription = "Cover",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(name.ifBlank { "Restaurant" }, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    // Logo Circle Badge
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface,
+                        shadowElevation = 6.dp,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 16.dp)
+                            .offset(y = 24.dp)
+                            .size(68.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            val lUrl = sanitizeImageUrl(imageUrl)
+                            if (!lUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = lUrl,
+                                    contentDescription = "Logo",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            } else {
+                                Text(
+                                    name.take(1).uppercase().ifEmpty { "R" },
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(28.dp))
+
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(name.ifBlank { "My Restaurant" }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Surface(
+                            color = if (open) Color(0xFFD4F4DD) else Color(0xFFFFD6D6),
+                            shape = RoundedCornerShape(50)
+                        ) {
+                            Text(
+                                if (open) "Open" else "Closed",
+                                color = if (open) Color(0xFF14692B) else Color(0xFF8F1111),
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    if (desc.isNotBlank()) {
+                        Text(desc, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Accepting orders", fontWeight = FontWeight.SemiBold)
+                            Text("Turn off when closed or too busy", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                        Switch(
+                            checked = open,
+                            onCheckedChange = { newOpen ->
+                                open = newOpen
+                                vm.updateRestaurant(
+                                    name = name, description = desc, address = address, phone = phone, email = email,
+                                    imageUrl = imageUrl, coverImageUrl = coverImageUrl, city = city, district = district,
+                                    postalCode = postalCode, businessRegistrationNo = businessRegNo,
+                                    minOrderAmount = minOrderAmount.toDoubleOrNull() ?: 0.0,
+                                    estimatedPrepTimeMinutes = prepTime.toIntOrNull(),
+                                    deliveryRadiusKm = deliveryRadius.toDoubleOrNull(),
+                                    isOpen = newOpen,
+                                    reSubmitApproval = false
+                                )
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        // VIEW MODE vs EDIT MODE
+        if (!isEditing) {
+            // Read-Only Cards
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Basic Information", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    HorizontalDivider()
+                    ProfileDetailRow("Business Email", email.ifBlank { "(not set)" })
+                    ProfileDetailRow("Phone Number", phone.ifBlank { "(not set)" })
+                    ProfileDetailRow("Description", desc.ifBlank { "(not set)" })
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Location & Address", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    HorizontalDivider()
+                    ProfileDetailRow("Street Address", address.ifBlank { "(not set)" })
+                    ProfileDetailRow("City / District", listOfNotNull(city.ifBlank { null }, district.ifBlank { null }).joinToString(", ").ifEmpty { "(not set)" })
+                    ProfileDetailRow("Postal Code", postalCode.ifBlank { "(not set)" })
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Business & Operations", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    HorizontalDivider()
+                    ProfileDetailRow("Business Reg No.", businessRegNo.ifBlank { "(not set)" })
+                    ProfileDetailRow("Min Order Amount", if (minOrderAmount.isNotBlank()) "Rs. $minOrderAmount" else "(not set)")
+                    ProfileDetailRow("Est. Prep Time", if (prepTime.isNotBlank()) "$prepTime mins" else "(not set)")
+                    ProfileDetailRow("Delivery Radius", if (deliveryRadius.isNotBlank()) "$deliveryRadius km" else "(not set)")
+                }
+            }
+        } else {
+            // Edit Mode Form
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Change Images", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isUploadingLogo) {
+                                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                                } else if (imageUrl.isNotBlank()) {
+                                    AsyncImage(model = sanitizeImageUrl(imageUrl), contentDescription = "Logo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                } else {
+                                    Icon(Ic.Store, null, tint = MaterialTheme.colorScheme.outline)
+                                }
+                            }
+                            TextButton(onClick = { logoPicker.launch("image/*") }, enabled = !isUploadingLogo) {
+                                Text(if (isUploadingLogo) "Uploading..." else if (imageUrl.isBlank()) "Add Logo" else "Change Logo")
+                            }
+                        }
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                Modifier.fillMaxWidth().height(72.dp).clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isUploadingCover) {
+                                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
+                                } else if (coverImageUrl.isNotBlank()) {
+                                    AsyncImage(model = sanitizeImageUrl(coverImageUrl), contentDescription = "Cover", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                                } else {
+                                    Text("Cover Photo", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                                }
+                            }
+                            TextButton(onClick = { coverPicker.launch("image/*") }, enabled = !isUploadingCover) {
+                                Text(if (isUploadingCover) "Uploading..." else if (coverImageUrl.isBlank()) "Add Cover" else "Change Cover")
+                            }
+                        }
+                    }
+
+                    Section("Basic Information")
+                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(email, { email = it }, label = { Text("Business Email") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(phone, { phone = it }, label = { Text("Phone") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(desc, { desc = it }, label = { Text("Description") }, modifier = Modifier.fillMaxWidth())
+
+                    Section("Location")
+                    OutlinedTextField(address, { address = it }, label = { Text("Address") }, modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(city, { city = it }, label = { Text("City") }, singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(district, { district = it }, label = { Text("District") }, singleLine = true, modifier = Modifier.weight(1f))
+                    }
+                    OutlinedTextField(postalCode, { postalCode = it }, label = { Text("Postal Code") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
+                    Section("Business & Operations")
+                    OutlinedTextField(businessRegNo, { businessRegNo = it }, label = { Text("Business Registration No.") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(minOrderAmount, { minOrderAmount = it }, label = { Text("Min Order (Rs.)") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
+                        OutlinedTextField(prepTime, { prepTime = it }, label = { Text("Est. Prep (min)") }, singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
+                    }
+                    OutlinedTextField(deliveryRadius, { deliveryRadius = it }, label = { Text("Delivery Radius (km)") }, singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                name = r.name
+                                desc = r.description.orEmpty()
+                                address = r.address.orEmpty()
+                                phone = r.phone.orEmpty()
+                                email = r.email.orEmpty()
+                                city = r.city.orEmpty()
+                                district = r.district.orEmpty()
+                                postalCode = r.postalCode.orEmpty()
+                                businessRegNo = r.businessRegistrationNo.orEmpty()
+                                minOrderAmount = if (r.minOrderAmount > 0) r.minOrderAmount.toString() else ""
+                                prepTime = r.estimatedPrepTimeMinutes?.toString().orEmpty()
+                                deliveryRadius = r.deliveryRadiusKm?.toString().orEmpty()
+                                isEditing = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Cancel")
+                        }
+
+                        Button(
+                            onClick = {
+                                vm.updateRestaurant(
+                                    name = name,
+                                    description = desc,
+                                    address = address,
+                                    phone = phone,
+                                    email = email,
+                                    imageUrl = imageUrl,
+                                    coverImageUrl = coverImageUrl,
+                                    city = city,
+                                    district = district,
+                                    postalCode = postalCode,
+                                    businessRegistrationNo = businessRegNo,
+                                    minOrderAmount = minOrderAmount.toDoubleOrNull() ?: 0.0,
+                                    estimatedPrepTimeMinutes = prepTime.toIntOrNull(),
+                                    deliveryRadiusKm = deliveryRadius.toDoubleOrNull(),
+                                    isOpen = open,
+                                    reSubmitApproval = true
+                                )
+                                isEditing = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Save & Submit")
+                        }
+                    }
+                }
+            }
+        }
 
         OutlinedButton(onClick = { auth.logout() }, modifier = Modifier.fillMaxWidth()) {
             Icon(Ic.Logout, null)
             Spacer(Modifier.padding(horizontal = 4.dp))
             Text("Log out")
         }
+    }
+}
+
+@Composable
+private fun ProfileDetailRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+        Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
     }
 }

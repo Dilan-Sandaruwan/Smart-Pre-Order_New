@@ -19,6 +19,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import java.time.OffsetDateTime
 
 /** Runs [block]; returns null on any failure except coroutine cancellation. */
 inline fun <T> orNull(block: () -> T): T? = try {
@@ -221,6 +222,7 @@ object Repo {
         estimatedPrepTimeMinutes: Int? = null,
         deliveryRadiusKm: Double? = null,
         isOpen: Boolean = true,
+        reSubmitApproval: Boolean = false,
     ) {
         db.from("restaurants").update(buildJsonObject {
             put("name", name)
@@ -239,6 +241,10 @@ object Repo {
             put("estimated_prep_time_minutes", estimatedPrepTimeMinutes)
             put("delivery_radius_km", deliveryRadiusKm)
             put("is_open", isOpen)
+            if (reSubmitApproval) {
+                put("approval_status", "pending")
+                put("submitted_at", OffsetDateTime.now().toString())
+            }
         }) { filter { eq("id", id) } }
     }
 

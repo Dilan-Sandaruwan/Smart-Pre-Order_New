@@ -441,6 +441,7 @@ class RestaurantViewModel : BaseVm() {
         estimatedPrepTimeMinutes: Int? = null,
         deliveryRadiusKm: Double? = null,
         isOpen: Boolean = true,
+        reSubmitApproval: Boolean = false,
     ) {
         val r = restaurant ?: return
         if (name.isBlank()) { error = "Enter the restaurant name"; return }
@@ -463,9 +464,10 @@ class RestaurantViewModel : BaseVm() {
                 estimatedPrepTimeMinutes = estimatedPrepTimeMinutes,
                 deliveryRadiusKm = deliveryRadiusKm,
                 isOpen = isOpen,
+                reSubmitApproval = reSubmitApproval,
             )
             restaurant = Repo.myRestaurant()
-            message = "Saved"
+            message = if (reSubmitApproval) "Profile updated and re-submitted for Admin approval!" else "Saved"
         }
     }
 
