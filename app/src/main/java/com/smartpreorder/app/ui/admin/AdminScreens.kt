@@ -225,7 +225,7 @@ private fun AdminDashboard(vm: AdminViewModel) {
                         value = money(vm.totalRevenue),
                         subtitle = "From completed orders",
                         icon = Ic.Chart,
-                        bgColor = Color(0xFFD4F4DD),
+                        bgColor = Color(0x3322C55E),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -483,8 +483,8 @@ private fun AdminManage(vm: AdminViewModel) {
         }
 
         items(vm.promotions, key = { "promo-" + it.id }) { promo ->
-            val startColor = parseColorHex(promo.startColor, Color(0xFF900C3F))
-            val endColor = parseColorHex(promo.endColor, Color(0xFFC70039))
+            val startColor = parseColorHex(promo.startColor, Color(0xFFE85D00))
+            val endColor = parseColorHex(promo.endColor, Color(0xFFFFA040))
             Card(Modifier.fillMaxWidth()) {
                 Box(
                     modifier = Modifier

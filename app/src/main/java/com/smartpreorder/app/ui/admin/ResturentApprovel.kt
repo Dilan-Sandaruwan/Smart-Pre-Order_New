@@ -169,9 +169,9 @@ private fun RestaurantApprovalCard(r: Restaurant, vm: AdminViewModel) {
                     }
 
                     val (statusText, statusBg, statusFg) = when (r.approvalStatus) {
-                        "approved" -> Triple("Approved", Color(0xFFD4F4DD), Color(0xFF14692B))
-                        "rejected" -> Triple("Rejected", Color(0xFFFFD6D6), Color(0xFF8F1111))
-                        else -> Triple("Pending", Color(0xFFFFF3CD), Color(0xFF7A5B00))
+                        "approved" -> Triple("Approved", Color(0x3322C55E), Color(0xFF4ADE80))
+                        "rejected" -> Triple("Rejected", Color(0x33EF4444), Color(0xFFFF7A7A))
+                        else -> Triple("Pending", Color(0x33FFB300), Color(0xFFFFC857))
                     }
                     Surface(color = statusBg, shape = RoundedCornerShape(50)) {
                         Text(

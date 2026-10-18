@@ -214,7 +214,7 @@ fun sanitizeImageUrl(url: String?): String? {
     return trimmed.replace(" ", "%20")
 }
 
-fun parseColorHex(hex: String?, fallback: Color = Color(0xFF900C3F)): Color = try {
+fun parseColorHex(hex: String?, fallback: Color = BrandOrange): Color = try {
     if (hex.isNullOrBlank()) fallback
     else {
         val clean = hex.removePrefix("#")
@@ -293,12 +293,12 @@ fun Throwable.friendly(): String {
 @Composable
 fun StatusChip(status: String) {
     val (bg, fg) = when (status) {
-        "pending" -> Color(0xFFFFF3CD) to Color(0xFF7A5B00)
-        "accepted" -> Color(0xFFD6E9FF) to Color(0xFF0B4A8F)
-        "preparing" -> Color(0xFFFFE0CC) to Color(0xFF9A3D00)
-        "ready" -> Color(0xFFD4F4DD) to Color(0xFF14692B)
-        "completed" -> Color(0xFFE3E3E3) to Color(0xFF333333)
-        else -> Color(0xFFFFD6D6) to Color(0xFF8F1111)
+        "pending" -> Color(0x33FFB300) to Color(0xFFFFC857)
+        "accepted" -> Color(0x333B82F6) to Color(0xFF7DB4FF)
+        "preparing" -> Color(0x33FF6B00) to Color(0xFFFFA055)
+        "ready" -> Color(0x3322C55E) to Color(0xFF4ADE80)
+        "completed" -> Color(0x33B8C0CA) to Color(0xFFD0D6DD)
+        else -> Color(0x33EF4444) to Color(0xFFFF7A7A)
     }
     Surface(color = bg, shape = RoundedCornerShape(50)) {
         Text(

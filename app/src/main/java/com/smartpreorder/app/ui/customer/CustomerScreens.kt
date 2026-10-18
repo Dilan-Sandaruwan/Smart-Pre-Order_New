@@ -3,6 +3,20 @@
 package com.smartpreorder.app.ui.customer
 
 import com.smartpreorder.app.R
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.smartpreorder.app.ui.BrandDark
+import com.smartpreorder.app.ui.BrandOrange
+import com.smartpreorder.app.ui.PulseAvatar
+import com.smartpreorder.app.ui.appear
 
 import android.util.Log
 import androidx.compose.foundation.background
@@ -31,6 +45,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -136,12 +151,28 @@ fun CustomerApp(auth: AuthViewModel, profile: Profile) {
         }
     ) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
-            NavHost(navController = nav, startDestination = "tabs") {
+            NavHost(
+                navController = nav,
+                startDestination = "tabs",
+                enterTransition = { fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 6 } },
+                exitTransition = { fadeOut(tween(200)) },
+                popEnterTransition = { fadeIn(tween(300)) },
+                popExitTransition = { fadeOut(tween(200)) + slideOutHorizontally(tween(300)) { it / 6 } }
+            ) {
                 composable("tabs") {
-                    when (selectedTab) {
-                        0 -> RestaurantsTab(vm, nav)
-                        1 -> OrdersTab(vm, nav)
-                        else -> CustomerProfileTab(vm, auth)
+                    AnimatedContent(
+                        targetState = selectedTab,
+                        transitionSpec = {
+                            (fadeIn(tween(300)) + slideInVertically(tween(300)) { it / 16 })
+                                .togetherWith(fadeOut(tween(150)))
+                        },
+                        label = "customerTabs"
+                    ) { tab ->
+                        when (tab) {
+                            0 -> RestaurantsTab(vm, nav)
+                            1 -> OrdersTab(vm, nav)
+                            else -> CustomerProfileTab(vm, auth)
+                        }
                     }
                 }
                 composable("restaurant/{id}") { entry ->
@@ -206,24 +237,24 @@ val DEFAULT_OFFERS = listOf(
         title = "Big Cravings, Bigger Savings",
         discountText = "Rs. 1000 OFF",
         subtext = "On orders of Rs. 3,000+",
-        startColor = Color(0xFF900C3F),
-        endColor = Color(0xFFC70039)
+        startColor = Color(0xFFE85D00),
+        endColor = Color(0xFFFFA040)
     ),
     OfferBanner(
         id = "2",
         title = "Special Discount",
         discountText = "20% OFF",
         subtext = "On all Kottu & Burgers today",
-        startColor = Color(0xFF1E5128),
-        endColor = Color(0xFF4E9F3D)
+        startColor = Color(0xFFC2410C),
+        endColor = Color(0xFFFF8A3D)
     ),
     OfferBanner(
         id = "3",
         title = "Super Deal",
         discountText = "Free Delivery",
         subtext = "For your first 3 pre-orders",
-        startColor = Color(0xFF1F4287),
-        endColor = Color(0xFF278EA5)
+        startColor = Color(0xFF7C2D12),
+        endColor = Color(0xFFFF6B00)
     )
 )
 
@@ -264,8 +295,8 @@ private fun PromotionBanner(promotions: List<Promotion>) {
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        val startColor = parseColorHex(promo.startColor, Color(0xFF900C3F))
-                        val endColor = parseColorHex(promo.endColor, Color(0xFFC70039))
+                        val startColor = parseColorHex(promo.startColor, Color(0xFFE85D00))
+                        val endColor = parseColorHex(promo.endColor, Color(0xFFFFA040))
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -545,7 +576,7 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().appear()
     ) {
         Column {
             Box(
@@ -556,7 +587,7 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
+                        .background(Brush.horizontalGradient(listOf(Color(0xFFFF6B00), Color(0xFFFFA040)))),
                     contentAlignment = Alignment.Center
                 ) {
                     Text("🍽️ ${r.name}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
@@ -578,13 +609,13 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                 }
 
                 Surface(
-                    color = if (r.isOpen) Color(0xFFD4F4DD) else Color(0xFFFFD6D6),
+                    color = if (r.isOpen) Color(0x3322C55E) else Color(0x33EF4444),
                     shape = RoundedCornerShape(50),
                     modifier = Modifier.align(Alignment.TopEnd).padding(10.dp)
                 ) {
                     Text(
                         if (r.isOpen) "Open" else "Closed",
-                        color = if (r.isOpen) Color(0xFF14692B) else Color(0xFF8F1111),
+                        color = if (r.isOpen) Color(0xFF4ADE80) else Color(0xFFFF7A7A),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
@@ -638,7 +669,7 @@ private fun RestaurantCard(r: Restaurant, stat: RestaurantStat?, onClick: () -> 
                     )
                     if (stat != null && stat.reviewCount > 0) {
                         Surface(
-                            color = Color(0xFFFFF3CD),
+                            color = Color(0x33FFB300),
                             shape = RoundedCornerShape(8.dp)
                         ) {
                             Row(
@@ -747,7 +778,7 @@ private fun RestaurantMenuScreen(vm: CustomerViewModel, id: String, nav: NavHost
                                     Box(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
+                                            .background(Brush.horizontalGradient(listOf(Color(0xFFFF6B00), Color(0xFFFFA040)))),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
@@ -1659,20 +1690,81 @@ private fun OrderDetailScreen(vm: CustomerViewModel, auth: AuthViewModel, id: St
 // =====================================================================
 @Composable
 private fun CustomerProfileTab(vm: CustomerViewModel, auth: AuthViewModel) {
+    val name = auth.profile?.fullName.orEmpty()
+    val phone = auth.profile?.phone.orEmpty()
+    val role = auth.profile?.role.orEmpty()
     Column(
-        modifier = Modifier.fillMaxSize().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Profile", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Name: ${auth.profile?.fullName.orEmpty()}", fontWeight = FontWeight.SemiBold)
-                Text("Phone: ${auth.profile?.phone.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
-                Text("Role: ${auth.profile?.role.orEmpty()}", style = MaterialTheme.typography.bodyMedium)
+        Box(
+            Modifier.fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color(0xFF3A1D08), BrandDark)))
+                .padding(top = 24.dp, bottom = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Profile", style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.appear()
+                )
+                PulseAvatar(initial = name.trim().firstOrNull()?.uppercase() ?: "?")
+                Text(
+                    name, style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.appear(150)
+                )
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    color = BrandOrange.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(50),
+                    modifier = Modifier.appear(250)
+                ) {
+                    Text(
+                        role.replaceFirstChar { it.uppercase() },
+                        color = BrandOrange, style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 5.dp)
+                    )
+                }
             }
         }
-        Button(onClick = { auth.logout() }, modifier = Modifier.fillMaxWidth()) {
-            Text("Sign Out")
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Card(modifier = Modifier.fillMaxWidth().appear(300)) {
+                Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    ProfileInfoRow(Ic.Person, "Name", name)
+                    ProfileInfoRow(Ic.Phone, "Phone", phone)
+                    ProfileInfoRow(Ic.Security, "Role", role)
+                }
+            }
+            Button(
+                onClick = { auth.logout() },
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandOrange, contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth().height(54.dp).appear(450)
+            ) {
+                Icon(Ic.Logout, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Sign Out")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(
+            Modifier.size(42.dp).background(BrandOrange.copy(alpha = 0.16f), RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, null, tint = BrandOrange, modifier = Modifier.size(20.dp)) }
+        Column {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+            Text(
+                value.ifBlank { "-" }, style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }

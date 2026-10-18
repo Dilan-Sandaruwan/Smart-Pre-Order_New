@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Refresh
@@ -57,4 +58,5 @@ object Ic {
     val Settings = Icons.Filled.Settings
     val Security = Icons.Filled.Security
     val Download = Icons.Filled.FileDownload
+    val Phone = Icons.Filled.Phone
 }

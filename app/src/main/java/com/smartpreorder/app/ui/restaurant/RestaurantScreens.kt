@@ -156,7 +156,7 @@ fun RestaurantApprovalBanner(r: Restaurant?) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFFF3CD)
+                containerColor = Color(0x33FFB300)
             )
         ) {
             Row(
@@ -166,19 +166,19 @@ fun RestaurantApprovalBanner(r: Restaurant?) {
                 Icon(
                     Ic.Report,
                     contentDescription = null,
-                    tint = Color(0xFF7A5B00),
+                    tint = Color(0xFFFFC857),
                     modifier = Modifier.padding(end = 12.dp)
                 )
                 Column {
                     Text(
                         "Pending Admin Approval",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF7A5B00)
+                        color = Color(0xFFFFC857)
                     )
                     Text(
                         "Your restaurant is awaiting approval by an administrator. Customers cannot view your menu or place orders until approved.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF7A5B00)
+                        color = Color(0xFFFFC857)
                     )
                 }
             }
@@ -187,7 +187,7 @@ fun RestaurantApprovalBanner(r: Restaurant?) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
-                containerColor = Color(0xFFFFD6D6)
+                containerColor = Color(0x33EF4444)
             )
         ) {
             Row(
@@ -197,19 +197,19 @@ fun RestaurantApprovalBanner(r: Restaurant?) {
                 Icon(
                     Ic.Close,
                     contentDescription = null,
-                    tint = Color(0xFF8F1111),
+                    tint = Color(0xFFFF7A7A),
                     modifier = Modifier.padding(end = 12.dp)
                 )
                 Column {
                     Text(
                         "Registration Rejected",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF8F1111)
+                        color = Color(0xFFFF7A7A)
                     )
                     Text(
                         "Your restaurant registration was rejected by the administrator. Food sales are disabled.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF8F1111)
+                        color = Color(0xFFFF7A7A)
                     )
                 }
             }
@@ -791,7 +791,7 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Brush.horizontalGradient(listOf(Color(0xFF800000), Color(0xFFD32F2F)))),
+                                .background(Brush.horizontalGradient(listOf(Color(0xFFFF6B00), Color(0xFFFFA040)))),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(name.ifBlank { "Restaurant" }, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
@@ -840,12 +840,12 @@ private fun RestaurantProfileTab(vm: RestaurantViewModel, auth: AuthViewModel) {
                     ) {
                         Text(name.ifBlank { "My Restaurant" }, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Surface(
-                            color = if (open) Color(0xFFD4F4DD) else Color(0xFFFFD6D6),
+                            color = if (open) Color(0x3322C55E) else Color(0x33EF4444),
                             shape = RoundedCornerShape(50)
                         ) {
                             Text(
                                 if (open) "Open" else "Closed",
-                                color = if (open) Color(0xFF14692B) else Color(0xFF8F1111),
+                                color = if (open) Color(0xFF4ADE80) else Color(0xFFFF7A7A),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)

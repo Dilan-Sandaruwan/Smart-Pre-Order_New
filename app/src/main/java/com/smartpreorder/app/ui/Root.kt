@@ -2,7 +2,21 @@
 
 package com.smartpreorder.app.ui
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import com.smartpreorder.app.R
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,9 +62,21 @@ import com.smartpreorder.app.ui.restaurant.RestaurantApp
 fun SmartPreOrderRoot() {
     val auth: AuthViewModel = viewModel()
     val profile = auth.profile
+    val prefs = LocalContext.current.getSharedPreferences("smartpreorder_prefs", android.content.Context.MODE_PRIVATE)
+    var showIntro by remember { mutableStateOf(!prefs.getBoolean("intro_seen", false)) }
+    if (showIntro) {
+        IntroScreen(onFinish = {
+            prefs.edit().putBoolean("intro_seen", true).apply()
+            showIntro = false
+        })
+        return
+    }
     when {
-        auth.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
+        auth.loading -> Box(Modifier.fillMaxSize().background(BrandDark), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                Image(painterResource(R.drawable.logo_primary), "SmartPreOrder", Modifier.widthIn(max = 240.dp))
+                CircularProgressIndicator(color = BrandOrange, strokeWidth = 3.dp, modifier = Modifier.size(32.dp))
+            }
         }
         profile == null -> AuthScreen(auth)
         profile.role == "restaurant" -> RestaurantApp(auth, profile)
@@ -70,15 +96,22 @@ fun AuthScreen(auth: AuthViewModel) {
     val snack = remember { SnackbarHostState() }
     Notices(auth, snack)
 
-    Scaffold(snackbarHost = { SnackbarHost(snack) }) { pad ->
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.verticalGradient(listOf(Color(0xFF241208), BrandDark, BrandDark))
+        )
+    ) {
+    Scaffold(containerColor = Color.Transparent, snackbarHost = { SnackbarHost(snack) }) { pad ->
         Column(
             Modifier.padding(pad).fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(24.dp))
-            Text("SmartPreOrder", style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Image(
+                painterResource(R.drawable.logo_primary), "SmartPreOrder",
+                Modifier.widthIn(max = 260.dp), contentScale = ContentScale.Fit
+            )
             Text("Order before you arrive. Skip the wait.", textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.outline)
             Spacer(Modifier.height(12.dp))
@@ -135,12 +168,15 @@ fun AuthScreen(auth: AuthViewModel) {
                     else auth.login(email, password)
                 },
                 enabled = !auth.busy,
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(28.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = BrandOrange, contentColor = Color.White),
+                modifier = Modifier.fillMaxWidth().height(54.dp)
             ) { Text(if (auth.busy) "Please wait..." else if (isRegister) "Create account" else "Log in") }
 
             TextButton(onClick = { isRegister = !isRegister; auth.info = null }) {
                 Text(if (isRegister) "I already have an account" else "New here? Create an account")
             }
         }
+    }
     }
 }
