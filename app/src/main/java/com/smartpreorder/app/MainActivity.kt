@@ -15,6 +15,11 @@ import com.smartpreorder.app.ui.SmartPreOrderTheme
 
 class MainActivity : ComponentActivity() {
 
+    override fun onResume() {
+        super.onResume()
+        com.smartpreorder.app.notifications.PushNotifications.syncToken()
+    }
+
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 

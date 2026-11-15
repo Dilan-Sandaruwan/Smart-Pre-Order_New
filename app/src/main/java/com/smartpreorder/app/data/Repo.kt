@@ -60,7 +60,10 @@ object Repo {
         return supabase.auth.currentSessionOrNull() != null
     }
 
-    suspend fun signOut() = supabase.auth.signOut()
+    suspend fun signOut() {
+        com.smartpreorder.app.notifications.PushNotifications.clearLocalSession()
+        supabase.auth.signOut()
+    }
 
     suspend fun myProfile(): Profile =
         db.from("profiles").select { filter { eq("id", uid()) } }.decodeSingle<Profile>()
