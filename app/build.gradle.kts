@@ -6,6 +6,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.gms.google-services")
+}
+
+// Allow development builds before Firebase credentials have been supplied.
+tasks.matching { it.name.endsWith("GoogleServices") }.configureEach {
+    onlyIf { file("google-services.json").exists() }
 }
 
 // Supabase credentials come from local.properties (never commit that file)
@@ -54,6 +60,9 @@ kotlin {
 }
 
 dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:33.14.0"))
+    implementation("com.google.firebase:firebase-messaging")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
     // Jetpack Compose
     implementation(platform("androidx.compose:compose-bom:2025.05.01"))
     implementation("androidx.compose.ui:ui")

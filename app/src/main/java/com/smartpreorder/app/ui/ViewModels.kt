@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartpreorder.app.data.*
 import com.smartpreorder.app.notifications.Notifier
+import com.smartpreorder.app.notifications.PushNotifications
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.CancellationException
@@ -49,6 +50,7 @@ class AuthViewModel : BaseVm() {
                 when (st) {
                     is SessionStatus.Authenticated -> loadProfile()
                     is SessionStatus.NotAuthenticated -> {
+                        PushNotifications.clearLocalSession()
                         profile = null
                         loading = false
                     }
@@ -67,6 +69,7 @@ class AuthViewModel : BaseVm() {
                 profile = null
             } else {
                 profile = p
+                PushNotifications.signedIn(p.id, p.role)
             }
         } catch (e: CancellationException) {
             throw e

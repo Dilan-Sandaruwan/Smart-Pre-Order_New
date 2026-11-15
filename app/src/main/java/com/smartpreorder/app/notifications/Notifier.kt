@@ -3,16 +3,19 @@ package com.smartpreorder.app.notifications
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.smartpreorder.app.SmartPreOrderApp
+import com.smartpreorder.app.MainActivity
 import com.smartpreorder.app.data.Order
 
-/** Local notifications, triggered by Supabase Realtime events while the app is running. */
+/** Shared display for Firebase messages and live order updates. */
 object Notifier {
     private const val CHANNEL_ID = "orders"
 
@@ -56,18 +59,22 @@ object Notifier {
         show("New order!", "$who placed a $type order.", order.id.hashCode())
     }
 
-    private fun show(title: String, text: String, id: Int) {
+    fun show(title: String, text: String, id: Int) {
         val ctx = SmartPreOrderApp.instance
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS)
             != PackageManager.PERMISSION_GRANTED
         ) return
         val n = NotificationCompat.Builder(ctx, CHANNEL_ID)
+            .setContentIntent(PendingIntent.getActivity(ctx, id,
+                Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setOnlyAlertOnce(true)
             .setAutoCancel(true)
             .build()
         NotificationManagerCompat.from(ctx).notify(id, n)

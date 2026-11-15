@@ -6,3 +6,5 @@ build/
 app/build/
 .DS_Store
 captures/
+app/google-services.json
+*service-account*.json

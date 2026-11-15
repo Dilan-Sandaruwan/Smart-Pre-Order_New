@@ -52,7 +52,7 @@ Log out and log in again – you'll see the admin screens.
 ```
 app/src/main/java/com/smartpreorder/app/
   data/            Models.kt  Repo.kt (all Supabase calls)  SupabaseProvider.kt
-  notifications/   Notifier.kt  (local notifications)
+  notifications/   Firebase push delivery + local order notifications
   ui/              Root.kt (role router + login)  ViewModels.kt
                    CustomerScreens.kt  RestaurantScreens.kt  AdminScreens.kt
                    Components.kt  Theme.kt  Icons.kt
@@ -69,13 +69,14 @@ Architecture: Compose UI -> ViewModels (state) -> `Repo` -> Supabase (Auth + Pos
 | Node.js + Express + MySQL/PostgreSQL | **Supabase Postgres** (REST via supabase-kt) + SQL functions (`place_order`, `cancel_order`, `admin_stats`) |
 | Firebase Authentication | **Supabase Auth** (e-mail / password) |
 | Firebase / WebSocket real-time | **Supabase Realtime** (Postgres changes on `orders`) |
-| Firebase Cloud Messaging | Local notifications from realtime events (see limitations) |
+| Firebase Cloud Messaging | Firebase Console announcements for all users or role topics; see [setup](PUSH_NOTIFICATIONS.md) |
 | Security | Row Level Security on every table; prices/totals calculated in the database |
 
 ## Known limitations / next steps
 
-* **Notifications work while the app process is alive.** For alerts when the app is fully
-  closed, add Firebase Cloud Messaging + a Supabase Edge Function (listed under future work).
+* **Push announcements use Firebase only.** Follow [PUSH_NOTIFICATIONS.md](PUSH_NOTIFICATIONS.md)
+  to send messages to all users or role topics. Automatic order pushes need a trusted
+  sender; existing local order alerts work while the app's order listener is running.
 * No image upload yet (`image_url` columns exist; Supabase Storage can be added).
 * No online payment (the proposal lists it as future work) – customers pay at the restaurant.
 * Google Maps SDK is not included; the address is shown as text.
